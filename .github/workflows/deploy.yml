@@ -1,4 +1,4 @@
-name: 'Terraform Plan Validation'
+name: 'OpenTofu Plan Validation' # <-- Nombre actualizado
 
 on:
   pull_request:
@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  terraform-plan:
-    name: 'Terraform Plan'
+  tofu-plan: # <-- Nombre actualizado
+    name: 'OpenTofu Plan' # <-- Nombre actualizado
     runs-on: ubuntu-latest
     
     defaults:
@@ -30,22 +30,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1 # O la región que estés usando
 
-      # --- PASO NUEVO Y CORREGIDO ---
-      # 3. Instala Terraform en el corredor
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      # 3. Instala OpenTofu en el corredor
+      - name: Setup OpenTofu
+        uses: opentofu/setup-tofu@v1
         with:
-          # Puedes cambiar esta versión si lo deseas
-          terraform_version: 1.0.0 
+          # Corrección: El parámetro es 'tofu_version'
+          tofu_version: '1.7.0' # Usamos una versión reciente y estable
 
-      # 4. Inicializa Terraform
-      - name: Terraform Init
-        run: terraform init
+      # 4. Inicializa Tofu
+      - name: Tofu Init
+        run: tofu init # <-- ¡Cambiado!
         
       # 5. Valida el código
-      - name: Terraform Validate
-        run: terraform validate
+      - name: Tofu Validate
+        run: tofu validate # <-- ¡Cambiado!
 
       # 6. Ejecuta el plan (esto usará las credenciales de AWS)
-      - name: Terraform Plan
-        run: terraform plan -no-color
+      - name: Tofu Plan
+        run: tofu plan -no-color # <-- ¡Cambiado!
