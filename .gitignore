@@ -1,0 +1,20 @@
+# --- Terraform ---
+
+# Directorio local de plugins y módulos
+.terraform/
+
+# Archivos de estado locales (¡MUY IMPORTANTE!)
+# Nunca deberías tener estos si usas el backend S3, pero es una buena seguridad.
+*.tfstate
+*.tfstate.backup
+
+# Archivos de crash
+crash.log
+crash.*.log
+
+# Variables locales que no deben ser compartidas
+*.tfvars.local
+*.auto.tfvars
+
+# --- Archivos de Sistema ---
+.DS_Store
