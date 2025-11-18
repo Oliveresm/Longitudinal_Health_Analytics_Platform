@@ -10,7 +10,7 @@ on:
 
 jobs:
   tofu-plan: # <-- Nombre actualizado
-    name: 'OpenTofu Plan' # <-- Nombre actualizado
+    name: 'OpenTofu Plan' # <-- Nombre actualizadomcds
     runs-on: ubuntu-latest
     
     defaults:
