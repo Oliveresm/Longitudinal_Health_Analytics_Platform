@@ -5,15 +5,14 @@ on:
     branches:
       - main
     paths:
-      - 'terraform/**' # Solo se ejecuta si cambias código de Terraform
+      - 'terraform/**'
   workflow_dispatch:
 
 jobs:
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
-
-    # Define el directorio de trabajo
+    
     defaults:
       run:
         working-directory: ./terraform
@@ -31,14 +30,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1 # O la región que estés usando
 
-      # 3. Inicializa Terraform
+      # --- PASO NUEVO Y CORREGIDO ---
+      # 3. Instala Terraform en el corredor
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          # Puedes cambiar esta versión si lo deseas
+          terraform_version: 1.0.0 
+
+      # 4. Inicializa Terraform
       - name: Terraform Init
         run: terraform init
-
-      # 4. Valida el código
+        
+      # 5. Valida el código
       - name: Terraform Validate
         run: terraform validate
 
-      # 5. Ejecuta el plan (esto usará las credenciales de AWS)
+      # 6. Ejecuta el plan (esto usará las credenciales de AWS)
       - name: Terraform Plan
         run: terraform plan -no-color
