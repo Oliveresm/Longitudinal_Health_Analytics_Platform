@@ -1,4 +1,4 @@
-name: 'OpenTofu Plan Validation' # <-- Nombre actualizado
+name: 'OpenTofu Plan Validation' # <-- Nombre actualizado,m
 
 on:
   pull_request:
