@@ -47,3 +47,70 @@ resource "aws_iam_role_policy_attachment" "lambda_ingest_logs" {
   # Política gestionada por AWS para escribir logs en CloudWatch
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+
+
+# --- Rol de IAM para el Servicio ECS "Processor" ---
+resource "aws_iam_role" "ecs_processor_task_role" {
+  name = "healthtrends-ecs-processor-task-role"
+
+  # Política de confianza: permite que las tareas de ECS asuman este rol
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      {
+        Action    = "sts:AssumeRole",
+        Effect    = "Allow",
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "healthtrends-ecs-processor-task-role"
+  }
+}
+
+# --- Política de IAM: Permisos para SQS, Secrets y Logs ---
+resource "aws_iam_role_policy" "ecs_processor_policy" {
+  name = "healthtrends-ecs-processor-policy"
+  role = aws_iam_role.ecs_processor_task_role.id
+
+  policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      {
+        # Permiso para SQS (Leer y Borrar mensajes)
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ],
+        Effect   = "Allow",
+        Resource = aws_sqs_queue.new_results_queue.arn
+      },
+      {
+        # Permiso para leer el secreto de la contraseña de RDS
+        Action   = "secretsmanager:GetSecretValue",
+        Effect   = "Allow",
+        Resource = aws_secretsmanager_secret.db_password_secret.arn
+      },
+      {
+        # Permisos básicos para que Fargate funcione (como pull de ECR)
+        # y para escribir logs en CloudWatch
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Effect   = "Allow",
+        Resource = "*" # Estos permisos son generales
+      }
+    ]
+  })
+}
