@@ -1,0 +1,43 @@
+name: OpenTofu Plan Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+jobs:
+  tofu-plan:
+    name: OpenTofu Plan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-tofu@v1
+        with:
+          tofu_version: '1.7.0'
+
+      - name: Tofu Init
+        run: tofu init
+
+      - name: Tofu Validate
+        run: tofu validate
+
+      - name: Tofu Plan
+        run: tofu plan -no-color
