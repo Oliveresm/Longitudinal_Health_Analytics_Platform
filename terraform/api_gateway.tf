@@ -106,12 +106,15 @@ output "api_gateway_invoke_url" {
 # CONFIGURACIÓN DE CORS (Para que funcione desde React/Localhost)
 # =================================================================
 
-# 1. Método OPTIONS (El navegador lo llama antes del POST)
-resource "aws_api_gateway_method" "ingest_options" {
+# --- 4. El Método (El verbo POST) ---
+resource "aws_api_gateway_method" "ingest_method_post" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
   resource_id   = aws_api_gateway_resource.ingest_resource.id
-  http_method   = "OPTIONS"
-  authorization = "NONE" # ¡Sin auth para la pregunta de CORS!
+  http_method   = "POST"
+  
+  # CAMBIO TEMPORAL: Quitamos la seguridad para probar desde localhost sin login
+  authorization = "NONE" 
+  # authorizer_id = aws_api_gateway_authorizer.cognito_auth.id  <-- Comenta o borra esta línea
 }
 
 # 2. Respuesta Mock (API Gateway responde directamente, sin llamar a Lambda)
