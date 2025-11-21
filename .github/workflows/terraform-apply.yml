@@ -23,10 +23,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+      
+      # ESTA ES LA LÍNEA QUE FALLABA
       - name: Setup OpenTofu
-        uses: opentofu/setup-tofu@v1 # <--- ¡Tiene el @v1!
+        uses: opentofu/setup-tofu@v1  # <--- TIENE QUE TENER EL @v1
         with:
           tofu_version: '1.7.0'
+
       - name: Tofu Init
         run: tofu init
       - name: Tofu Apply
