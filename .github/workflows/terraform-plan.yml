@@ -1,18 +1,18 @@
-name: OpenTofu Plan Validation
+name: 'OpenTofu Apply (Deploy)'
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - main # ¡Solo se ejecuta cuando el código llega a main!
     paths:
-      - 'terraform/**'
-  workflow_dispatch:
+      - 'terraform/**' # Solo si hubo cambios en la carpeta terraform
 
 jobs:
-  tofu-plan:
-    name: OpenTofu Plan
+  tofu-apply:
+    name: 'OpenTofu Apply'
     runs-on: ubuntu-latest
-
+    
+    # Permisos necesarios para conectarse a AWS
     defaults:
       run:
         working-directory: ./terraform
@@ -36,8 +36,7 @@ jobs:
       - name: Tofu Init
         run: tofu init
 
-      - name: Tofu Validate
-        run: tofu validate
-
-      - name: Tofu Plan
-        run: tofu plan -no-color
+      # EL PASO CRÍTICO: Apply Automático
+      - name: Tofu Apply
+        # -auto-approve es obligatorio en CI/CD porque no hay un humano para escribir "yes"
+        run: tofu apply -auto-approve
