@@ -32,7 +32,7 @@ jobs:
 
       # 3. Instalar Tofu
       - name: Setup OpenTofu
-        uses: opentofu/setup-tofu@v1
+        uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: '1.7.0'
 
