@@ -64,7 +64,14 @@ def lambda_handler(event, context):
 
         # 3. Responder a API Gateway
         return {
-            "statusCode": 202, # 202 Accepted (Aceptado)
+            "statusCode": 202,
+            # --- AÑADE ESTO ---
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST"
+            },
+            # ------------------
             "body": json.dumps({"message": "Resultado aceptado y encolado para procesamiento."})
         }
 

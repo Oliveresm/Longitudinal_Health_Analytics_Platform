@@ -71,12 +71,14 @@ resource "aws_lambda_permission" "api_gateway_permission" {
 resource "aws_api_gateway_deployment" "api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.api.id
 
-  # Terraform creará un nuevo despliegue cada vez que algo cambie
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_resource.ingest_resource.id,
       aws_api_gateway_method.ingest_method_post.id,
-      aws_api_gateway_integration.lambda_integration.id
+      aws_api_gateway_integration.lambda_integration.id,
+      
+      # --- AÑADE ESTA LÍNEA: ---
+      aws_api_gateway_method.ingest_options.id 
     ]))
   }
 
@@ -96,4 +98,64 @@ resource "aws_api_gateway_stage" "prod_stage" {
 output "api_gateway_invoke_url" {
   description = "La URL base para invocar la API"
   value       = aws_api_gateway_stage.prod_stage.invoke_url
+}
+
+
+
+# =================================================================
+# CONFIGURACIÓN DE CORS (Para que funcione desde React/Localhost)
+# =================================================================
+
+# 1. Método OPTIONS (El navegador lo llama antes del POST)
+resource "aws_api_gateway_method" "ingest_options" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.ingest_resource.id
+  http_method   = "OPTIONS"
+  authorization = "NONE" # ¡Sin auth para la pregunta de CORS!
+}
+
+# 2. Respuesta Mock (API Gateway responde directamente, sin llamar a Lambda)
+resource "aws_api_gateway_integration" "ingest_options_integration" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.ingest_resource.id
+  http_method = aws_api_gateway_method.ingest_options.http_method
+  type        = "MOCK"
+  
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+# 3. Definir qué headers devolvemos (Configuración)
+resource "aws_api_gateway_method_response" "ingest_options_response" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.ingest_resource.id
+  http_method = aws_api_gateway_method.ingest_options.http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+# 4. Definir los VALORES de esos headers
+resource "aws_api_gateway_integration_response" "ingest_options_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.ingest_resource.id
+  http_method = aws_api_gateway_method.ingest_options.http_method
+  status_code = aws_api_gateway_method_response.ingest_options_response.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'",
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'" # Permitir a todo el mundo (localhost incluido)
+  }
+
+  depends_on = [aws_api_gateway_method_response.ingest_options_response]
 }

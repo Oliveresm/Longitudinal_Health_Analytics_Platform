@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+# 1. IMPORTAR EL MIDDLEWARE
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import boto3
 import json
@@ -6,6 +8,16 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 app = FastAPI()
+
+# 2. CONFIGURAR CORS (¡ESTO ES LO NUEVO!)
+# Esto permite que tu localhost hable con el servidor
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite CUALQUIER origen (localhost, vercel, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite GET, POST, PUT, DELETE...
+    allow_headers=["*"],  # Permite cualquier header
+)
 
 # --- Configuración ---
 DB_SECRET_ARN = os.environ.get("DB_SECRET_ARN")
@@ -43,8 +55,6 @@ def get_patient_dashboard(patient_id: str):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # Usamos la VISTA que creamos (o una query directa si la vista no está)
-            # Query optimizada para obtener el último resultado de cada tipo
             sql = """
             SELECT DISTINCT ON (test_code)
                 test_code, test_name, value, unit, test_date
@@ -64,7 +74,6 @@ def get_patient_trends(patient_id: str, test_code: str):
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # Query analítica con Window Functions (AVG OVER)
             sql = """
             SELECT 
                 test_date, 
