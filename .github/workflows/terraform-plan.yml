@@ -3,16 +3,15 @@ name: 'OpenTofu Apply (Deploy)'
 on:
   push:
     branches:
-      - main # ¡Solo se ejecuta cuando el código llega a main!
+      - main
     paths:
-      - 'terraform/**' # Solo si hubo cambios en la carpeta terraform
+      - 'terraform/**'
 
 jobs:
   tofu-apply:
     name: 'OpenTofu Apply'
     runs-on: ubuntu-latest
     
-    # Permisos necesarios para conectarse a AWS
     defaults:
       run:
         working-directory: ./terraform
@@ -28,15 +27,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      # AQUÍ ESTABA EL ERROR PROBABLEMENTE
       - name: Setup OpenTofu
-        uses: opentofu/setup-tofu@v1
+        uses: opentofu/setup-tofu@v1  # <--- Importante el @v1
         with:
           tofu_version: '1.7.0'
 
       - name: Tofu Init
         run: tofu init
 
-      # EL PASO CRÍTICO: Apply Automático
       - name: Tofu Apply
-        # -auto-approve es obligatorio en CI/CD porque no hay un humano para escribir "yes"
         run: tofu apply -auto-approve
