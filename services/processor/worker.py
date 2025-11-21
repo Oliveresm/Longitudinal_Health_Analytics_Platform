@@ -20,10 +20,8 @@ def get_db_password():
     print("Obteniendo contraseña de Secrets Manager...")
     try:
         response = secrets_client.get_secret_value(SecretId=DB_SECRET_ARN)
-        # El secreto es un string JSON, necesitamos extraer la clave 'password'
-        # que 'random_password' crea.
-        secret = json.loads(response['SecretString'])
-        return secret['password']
+        # SIN json.loads AQUÍ
+        return response['SecretString']
     except Exception as e:
         print(f"Error al obtener la contraseña: {e}")
         raise e
@@ -78,7 +76,9 @@ def process_message(msg, cursor):
 
 def main_loop():
     """El bucle principal del worker."""
+
     print("Iniciando worker...")
+    print("Iniciando worker... VERSION 2 (CORREGIDA)")
     
     # 1. Obtener contraseña y conectar a la BD (solo una vez al inicio)
     db_password = get_db_password()
