@@ -1,15 +1,15 @@
-name: 'OpenTofu Plan'
+name: 'OpenTofu Apply (Deploy)'
 
 on:
-  pull_request:
+  push:
     branches:
       - main
     paths:
       - 'terraform/**'
 
 jobs:
-  tofu-plan:
-    name: 'OpenTofu Plan'
+  tofu-apply:
+    name: 'OpenTofu Apply'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,5 +29,5 @@ jobs:
           tofu_version: '1.7.0'
       - name: Tofu Init
         run: tofu init
-      - name: Tofu Plan
-        run: tofu plan -no-color
+      - name: Tofu Apply
+        run: tofu apply -auto-approve
