@@ -53,11 +53,12 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_secretsmanager_secret" "db_password_secret" {
-  # Usamos -v3 para asegurar que sea un nombre nuevo y limpio
-  name        = "healthtrends/db_password-v3" 
-  description = "Contrasena para la base de datos RDS"
-}
+  name = "healthtrends/db_password-v4"
+  
+  description = "Contrasena para la base de datos RDS de HealthTrends"
 
+  recovery_window_in_days = 0
+}
 resource "aws_secretsmanager_secret_version" "db_password_version" {
   secret_id     = aws_secretsmanager_secret.db_password_secret.id
   secret_string = random_password.db_password.result
