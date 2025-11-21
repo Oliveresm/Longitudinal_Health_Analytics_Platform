@@ -1,36 +1,50 @@
-name: 'OpenTofu Apply (Deploy)'
+name: 'Infrastructure Pipeline'
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'terraform/**'
+    branches: [ "main" ]
+    paths: [ "terraform/**" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "terraform/**" ]
+  workflow_dispatch:
 
 jobs:
-  tofu-apply:
-    name: 'OpenTofu Apply'
+  terraform:
+    name: 'OpenTofu CI/CD'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./terraform
+
     steps:
+      # 1. Descargar código
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 2. Credenciales AWS
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
-      # ESTA ES LA LÍNEA QUE FALLABA
+
+      # 3. Instalar Tofu
       - name: Setup OpenTofu
-        uses: opentofu/setup-tofu@v1  # <--- TIENE QUE TENER EL @v1
+        uses: opentofu/setup-tofu@v1
         with:
           tofu_version: '1.7.0'
 
+      # 4. Inicializar
       - name: Tofu Init
         run: tofu init
+
+      # 5. Plan (Se ejecuta SIEMPRE: en PRs y en Main)
+      - name: Tofu Plan
+        run: tofu plan -no-color
+
+      # 6. Apply (Se ejecuta SOLO si estamos en la rama 'main')
       - name: Tofu Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: tofu apply -auto-approve
