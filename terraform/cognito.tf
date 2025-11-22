@@ -14,8 +14,7 @@ resource "aws_cognito_user_pool" "user_pool" {
     require_uppercase = true
   }
 
-  # --- NUEVO: Atributo personalizado 'patient_id' ---
-  # Esto nos permitirá vincular una cuenta de usuario (email) con un ID de paciente en la BD
+  # Atributo personalizado 'patient_id'
   schema {
     name                = "patient_id"
     attribute_data_type = "String"
@@ -26,6 +25,11 @@ resource "aws_cognito_user_pool" "user_pool" {
       min_length = 1
       max_length = 50
     }
+  }
+
+  # Configuración de Trigger Lambda (Post-Confirmation)
+  lambda_config {
+    post_confirmation = aws_lambda_function.post_confirmation_trigger.arn
   }
 
   tags = {
@@ -76,18 +80,7 @@ resource "aws_cognito_user_group" "patients_group" {
   precedence   = 3
 }
 
-# --- Outputs ---
-output "cognito_user_pool_id" {
-  value = aws_cognito_user_pool.user_pool.id
-}
-
-output "cognito_app_client_id" {
-  value = aws_cognito_user_pool_client.app_client.id
-}
-
-# ... (Grupos anteriores: Labs, Doctors, Patients)
-
-# --- NUEVO: Grupo de Administradores ---
+# Grupo: Administradores (Gestión de roles)
 resource "aws_cognito_user_group" "admins_group" {
   name         = "Admins"
   user_pool_id = aws_cognito_user_pool.user_pool.id
@@ -95,20 +88,11 @@ resource "aws_cognito_user_group" "admins_group" {
   precedence   = 0 # La prioridad más alta
 }
 
-resource "aws_cognito_user_pool" "user_pool" {
-  name = "healthtrends-user-pool"
-  
-  # ... (username_attributes, auto_verified, password_policy... déjalos igual) ...
+# --- Outputs ---
+output "cognito_user_pool_id" {
+  value = aws_cognito_user_pool.user_pool.id
+}
 
-  # ... (schema... déjalo igual) ...
-
-  # --- ESTO ES LO NUEVO ---
-  lambda_config {
-    post_confirmation = aws_lambda_function.post_confirmation_trigger.arn
-  }
-  # ------------------------
-
-  tags = {
-    Name = "healthtrends-user-pool"
-  }
+output "cognito_app_client_id" {
+  value = aws_cognito_user_pool_client.app_client.id
 }
