@@ -18,3 +18,5 @@ crash.*.log
 
 # --- Archivos de Sistema ---
 .DS_Store
+
+.env

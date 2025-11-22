@@ -8,8 +8,8 @@ resource "aws_api_gateway_rest_api" "api" {
   }
 }
 
-# --- 2. El Autorizador de Cognito (DESACTIVADO POR AHORA) ---
-# Lo dejamos aquí por si quieres activarlo después, pero el método no lo usa.
+# --- 2. El Autorizador de Cognito ---
+# Este recurso conecta la API con tu User Pool
 resource "aws_api_gateway_authorizer" "cognito_auth" {
   name            = "healthtrends-cognito-authorizer"
   type            = "COGNITO_USER_POOLS"
@@ -25,14 +25,15 @@ resource "aws_api_gateway_resource" "ingest_resource" {
   path_part   = "ingest"
 }
 
-# --- 4. El Método POST (Con Auth DESACTIVADO) ---
+# --- 4. El Método POST (SEGURIDAD ACTIVADA 🔒) ---
 resource "aws_api_gateway_method" "ingest_method_post" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
   resource_id   = aws_api_gateway_resource.ingest_resource.id
   http_method   = "POST"
   
-  # CAMBIO: Seguridad desactivada para pruebas
-  authorization = "NONE" 
+  # CAMBIO: Ahora requerimos un token válido de Cognito
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito_auth.id
 }
 
 # --- 5. La Integración (Conectar POST a Lambda) ---
