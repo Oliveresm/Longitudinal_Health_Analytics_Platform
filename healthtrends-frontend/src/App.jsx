@@ -3,10 +3,11 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
-// Importamos los 3 componentes
+// Importamos TODOS los componentes
 import LabDashboard from './components/LabDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import PatientDashboard from './components/PatientDashboard';
+import AdminDashboard from './components/AdminDashboard'; // <--- NUEVO
 
 function RoleRouter({ user, signOut }) {
   const [group, setGroup] = useState(null);
@@ -17,10 +18,11 @@ function RoleRouter({ user, signOut }) {
       try {
         const session = await fetchAuthSession();
         const idToken = session.tokens.idToken;
-        // Cognito guarda los grupos en el array 'cognito:groups'
         const groups = idToken.payload['cognito:groups'] || [];
         
-        if (groups.includes('Labs')) setGroup('Labs');
+        // Lógica de prioridad (Admin gana a todo)
+        if (groups.includes('Admins')) setGroup('Admins'); // <--- NUEVO
+        else if (groups.includes('Labs')) setGroup('Labs');
         else if (groups.includes('Doctors')) setGroup('Doctors');
         else if (groups.includes('Patients')) setGroup('Patients');
         else setGroup('Unknown');
@@ -49,6 +51,7 @@ function RoleRouter({ user, signOut }) {
 
       {/* Contenido Principal según el Rol */}
       <div style={{ padding: '20px' }}>
+        {group === 'Admins' && <AdminDashboard />} {/* <--- NUEVO */}
         {group === 'Labs' && <LabDashboard />}
         {group === 'Doctors' && <DoctorDashboard />}
         {group === 'Patients' && <PatientDashboard user={user} />}
@@ -56,8 +59,7 @@ function RoleRouter({ user, signOut }) {
         {group === 'Unknown' && (
             <div style={{ textAlign: 'center', marginTop: '50px' }}>
             <h3>⚠️ Acceso Limitado</h3>
-            <p>Tu usuario no tiene un rol asignado (Labs, Doctors, Patients).</p>
-            <p>Por favor contacta al administrador de AWS para que te asigne a un grupo.</p>
+            <p>Tu usuario no tiene un rol asignado.</p>
             </div>
         )}
       </div>

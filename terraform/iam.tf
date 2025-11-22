@@ -127,3 +127,39 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
     ]
   })
 }
+
+# --- Rol para el Trigger de Post-Confirmación ---
+resource "aws_iam_role" "lambda_trigger_role" {
+  name = "healthtrends-lambda-trigger-role"
+
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+# Permiso para añadir usuarios a grupos
+resource "aws_iam_role_policy" "lambda_trigger_policy" {
+  name = "healthtrends-lambda-trigger-policy"
+  role = aws_iam_role.lambda_trigger_role.id
+
+  policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      {
+        Action   = "cognito-idp:AdminAddUserToGroup",
+        Effect   = "Allow",
+        Resource = aws_cognito_user_pool.user_pool.arn
+      },
+      {
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+        Effect   = "Allow",
+        Resource = "*"
+      }
+    ]
+  })
+}

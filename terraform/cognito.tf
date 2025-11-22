@@ -94,3 +94,21 @@ resource "aws_cognito_user_group" "admins_group" {
   description  = "Administradores del sistema con capacidad de asignar roles"
   precedence   = 0 # La prioridad más alta
 }
+
+resource "aws_cognito_user_pool" "user_pool" {
+  name = "healthtrends-user-pool"
+  
+  # ... (username_attributes, auto_verified, password_policy... déjalos igual) ...
+
+  # ... (schema... déjalo igual) ...
+
+  # --- ESTO ES LO NUEVO ---
+  lambda_config {
+    post_confirmation = aws_lambda_function.post_confirmation_trigger.arn
+  }
+  # ------------------------
+
+  tags = {
+    Name = "healthtrends-user-pool"
+  }
+}

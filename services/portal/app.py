@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import os
 import boto3
 import psycopg2
@@ -10,22 +11,24 @@ import time
 
 app = FastAPI()
 
-# --- CONFIGURACIÓN (Leída de variables de entorno de ECS) ---
+# --- CONFIGURACIÓN ---
 COGNITO_REGION = "us-east-1"
-# Terraform nos inyecta estos valores:
 USER_POOL_ID = os.environ.get("USER_POOL_ID") 
 APP_CLIENT_ID = os.environ.get("APP_CLIENT_ID")
 
-# URL para descargar las llaves públicas de firma de Cognito
 JWKS_URL = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
 
-# Configuración de Base de Datos
 DB_SECRET_ARN = os.environ.get("DB_SECRET_ARN")
 DB_HOST = os.environ.get("DB_HOST")
 DB_NAME = "postgres"
 DB_USER = "postgres"
 
-# --- CORS (Permitir acceso desde React) ---
+# --- CLIENTES AWS ---
+secrets_client = boto3.client("secretsmanager", region_name=COGNITO_REGION)
+# Nuevo cliente para gestionar usuarios (requiere los permisos que acabamos de dar en IAM)
+cognito_client = boto3.client("cognito-idp", region_name=COGNITO_REGION)
+
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,9 +37,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-secrets_client = boto3.client("secretsmanager", region_name=COGNITO_REGION)
+# --- MODELOS DE DATOS ---
+class RoleRequest(BaseModel):
+    email: str
+    role: str  # 'Labs', 'Doctors', 'Patients'
 
-# --- CONEXIÓN A BASE DE DATOS ---
+# --- UTILIDADES ---
 def get_db_connection():
     try:
         response = secrets_client.get_secret_value(SecretId=DB_SECRET_ARN)
@@ -49,22 +55,16 @@ def get_db_connection():
         print(f"Error BD: {e}")
         raise HTTPException(status_code=500, detail="Error de conexión a base de datos")
 
-# --- SEGURIDAD: VALIDACIÓN DE TOKEN ---
 async def get_current_user(authorization: str = Header(None)):
-    """
-    Verifica que el usuario tenga un token válido de Cognito.
-    Retorna los datos del usuario (incluyendo su grupo y ID de paciente).
-    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Falta header de autorización")
 
     token = authorization.replace("Bearer ", "")
     
     try:
-        # 1. Obtener llaves públicas de Cognito
+        # Descargar llaves públicas (cachear esto en producción)
         jwks = requests.get(JWKS_URL).json()
         
-        # 2. Encontrar la llave correcta para este token
         header = jwt.get_unverified_header(token)
         rsa_key = {}
         for key in jwks["keys"]:
@@ -80,7 +80,6 @@ async def get_current_user(authorization: str = Header(None)):
         if not rsa_key:
             raise HTTPException(status_code=401, detail="Llave de token no encontrada")
 
-        # 3. Decodificar y validar el token
         payload = jwt.decode(
             token,
             rsa_key,
@@ -89,7 +88,7 @@ async def get_current_user(authorization: str = Header(None)):
             issuer=f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{USER_POOL_ID}"
         )
         
-        return payload # Éxito: devolvemos los datos del usuario
+        return payload 
 
     except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
@@ -101,34 +100,73 @@ async def get_current_user(authorization: str = Header(None)):
 
 @app.get("/")
 def read_root():
-    return {"message": "HealthTrends Secure API is running!"}
+    return {"message": "HealthTrends Pro API Running"}
 
-# 1. LISTA DE PACIENTES (Solo para Doctores y Labs)
+# === NUEVO: ENDPOINT ADMINISTRATIVO ===
+@app.post("/admin/assign-role")
+def assign_role(request: RoleRequest, user: dict = Depends(get_current_user)):
+    # 1. Verificar que quien llama sea un Admin
+    groups = user.get("cognito:groups", [])
+    if "Admins" not in groups:
+        raise HTTPException(status_code=403, detail="⛔ Acceso Denegado: Se requieren permisos de Administrador.")
+
+    # 2. Validar que el rol sea válido
+    valid_roles = ["Labs", "Doctors", "Patients", "Admins"]
+    if request.role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Rol inválido. Use: {valid_roles}")
+
+    # 3. Llamar a AWS Cognito para añadir al usuario al grupo
+    try:
+        # Primero buscamos al usuario por email para obtener su Username real (Cognito a veces usa UUIDs)
+        # Nota: Asumimos que el email es único y verificado.
+        response = cognito_client.list_users(
+            UserPoolId=USER_POOL_ID,
+            Filter=f'email = "{request.email}"',
+            Limit=1
+        )
+        
+        if not response['Users']:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado con ese email.")
+            
+        username = response['Users'][0]['Username']
+
+        # Añadir al grupo
+        cognito_client.admin_add_user_to_group(
+            UserPoolId=USER_POOL_ID,
+            Username=username,
+            GroupName=request.role
+        )
+        
+        return {"message": f"✅ Éxito: Usuario {request.email} añadido al grupo {request.role}"}
+
+    except Exception as e:
+        print(f"Error asignando rol: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno de Cognito: {str(e)}")
+
+
+# === ENDPOINTS REGULARES ===
+
 @app.get("/patients")
 def list_patients(user: dict = Depends(get_current_user)):
     groups = user.get("cognito:groups", [])
-    
-    # Validación de Rol
-    if "Doctors" not in groups and "Labs" not in groups:
-        raise HTTPException(status_code=403, detail="Acceso denegado. Solo doctores o laboratorios.")
+    if "Doctors" not in groups and "Labs" not in groups and "Admins" not in groups:
+        raise HTTPException(status_code=403, detail="Acceso denegado.")
 
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("SELECT DISTINCT patient_id FROM lab_results ORDER BY patient_id;")
             results = cursor.fetchall()
-            # Convertir lista de dicts a lista simple: ["TEST001", "TEST002"]
             return [row['patient_id'] for row in results]
     finally:
         conn.close()
 
-# 2. DASHBOARD (Últimos valores)
 @app.get("/patient/{patient_id}/dashboard")
 def get_patient_dashboard(patient_id: str, user: dict = Depends(get_current_user)):
     groups = user.get("cognito:groups", [])
     
-    # Seguridad: Si es Paciente, solo puede ver SU propio ID
-    if "Patients" in groups:
+    # Admin y Doctores ven todo. Pacientes solo lo suyo.
+    if "Patients" in groups and "Doctors" not in groups and "Admins" not in groups:
         user_patient_id = user.get("custom:patient_id")
         if user_patient_id != patient_id:
              raise HTTPException(status_code=403, detail="No puedes ver datos de otros pacientes.")
@@ -149,12 +187,10 @@ def get_patient_dashboard(patient_id: str, user: dict = Depends(get_current_user
     finally:
         conn.close()
 
-# 3. TENDENCIAS (Historial)
 @app.get("/patient/{patient_id}/trends/{test_code}")
 def get_patient_trends(patient_id: str, test_code: str, user: dict = Depends(get_current_user)):
-    # Seguridad (Misma lógica)
     groups = user.get("cognito:groups", [])
-    if "Patients" in groups:
+    if "Patients" in groups and "Doctors" not in groups and "Admins" not in groups:
         user_patient_id = user.get("custom:patient_id")
         if user_patient_id != patient_id:
              raise HTTPException(status_code=403, detail="No puedes ver datos de otros pacientes.")
@@ -163,24 +199,14 @@ def get_patient_trends(patient_id: str, test_code: str, user: dict = Depends(get
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             sql = """
-            SELECT 
-                test_date, 
-                value, 
-                unit,
-                AVG(value) OVER (
-                    ORDER BY test_date 
-                    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
-                ) as moving_avg_3_points
+            SELECT test_date, value, unit,
+                AVG(value) OVER (ORDER BY test_date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as moving_avg_3_points
             FROM lab_results
             WHERE patient_id = %s AND test_code = %s
             ORDER BY test_date ASC;
             """
             cursor.execute(sql, (patient_id, test_code))
             results = cursor.fetchall()
-            return {
-                "patient_id": patient_id, 
-                "test_code": test_code, 
-                "history": results
-            }
+            return {"patient_id": patient_id, "test_code": test_code, "history": results}
     finally:
         conn.close()

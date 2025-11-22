@@ -38,3 +38,29 @@ output "lambda_ingest_arn" {
   description = "El ARN de la función Lambda de ingesta"
   value       = aws_lambda_function.ingest_lambda.arn
 }
+
+# --- Empaquetado del Trigger ---
+data "archive_file" "lambda_trigger_zip" {
+  type        = "zip"
+  source_dir  = "../lambda/post_confirmation"
+  output_path = "${path.module}/.terraform/lambda_trigger.zip"
+}
+
+# --- Función Lambda del Trigger ---
+resource "aws_lambda_function" "post_confirmation_trigger" {
+  function_name    = "healthtrends-post-confirmation"
+  filename         = data.archive_file.lambda_trigger_zip.output_path
+  source_code_hash = data.archive_file.lambda_trigger_zip.output_base64sha256
+  role             = aws_iam_role.lambda_trigger_role.arn
+  handler          = "handler.lambda_handler"
+  runtime          = "python3.11"
+}
+
+# --- Permiso: Dejar que Cognito invoque esta Lambda ---
+resource "aws_lambda_permission" "allow_cognito" {
+  statement_id  = "AllowCognitoInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_confirmation_trigger.function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.user_pool.arn
+}
