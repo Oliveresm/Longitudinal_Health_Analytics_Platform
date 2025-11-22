@@ -84,3 +84,13 @@ output "cognito_user_pool_id" {
 output "cognito_app_client_id" {
   value = aws_cognito_user_pool_client.app_client.id
 }
+
+# ... (Grupos anteriores: Labs, Doctors, Patients)
+
+# --- NUEVO: Grupo de Administradores ---
+resource "aws_cognito_user_group" "admins_group" {
+  name         = "Admins"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  description  = "Administradores del sistema con capacidad de asignar roles"
+  precedence   = 0 # La prioridad más alta
+}

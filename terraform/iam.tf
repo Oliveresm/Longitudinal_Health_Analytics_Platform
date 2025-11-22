@@ -49,7 +49,7 @@ resource "aws_iam_role_policy_attachment" "lambda_ingest_logs" {
 }
 
 
-# --- Rol de IAM para el Servicio ECS "Processor" ---
+# --- Rol de IAM para el Servicio ECS "Processor" y "Portal" ---
 resource "aws_iam_role" "ecs_processor_task_role" {
   name = "healthtrends-ecs-processor-task-role"
 
@@ -72,7 +72,7 @@ resource "aws_iam_role" "ecs_processor_task_role" {
   }
 }
 
-# --- Política de IAM: Permisos para SQS, Secrets y Logs ---
+# --- Política de IAM: Permisos para SQS, Secrets, Logs y COGNITO ---
 resource "aws_iam_role_policy" "ecs_processor_policy" {
   name = "healthtrends-ecs-processor-policy"
   role = aws_iam_role.ecs_processor_task_role.id
@@ -110,6 +110,19 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
         ],
         Effect   = "Allow",
         Resource = "*" # Estos permisos son generales
+      },
+      {
+        # --- NUEVO: PERMISOS DE ADMINISTRACIÓN DE USUARIOS ---
+        # Permite a la API (Portal) añadir/quitar usuarios de grupos en Cognito
+        Action = [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:ListUsers",
+          "cognito-idp:ListGroups",
+          "cognito-idp:AdminGetUser"
+        ],
+        Effect   = "Allow",
+        Resource = aws_cognito_user_pool.user_pool.arn
       }
     ]
   })
