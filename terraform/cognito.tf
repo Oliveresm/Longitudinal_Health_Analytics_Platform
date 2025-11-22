@@ -1,13 +1,11 @@
-# --- 1. User Pool (El directorio de usuarios) ---
-# Aquí es donde se almacenarán las cuentas de los médicos.
+# --- 1. User Pool (Directorio de Usuarios) ---
 resource "aws_cognito_user_pool" "user_pool" {
   name = "healthtrends-user-pool"
 
-  # Configura cómo se registrarán los usuarios. Usaremos email como nombre de usuario.
-  username_attributes = ["email"]
+  # Usamos email como nombre de usuario
+  username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
-  # Define la política de contraseñas
   password_policy {
     minimum_length    = 8
     require_lowercase = true
@@ -16,37 +14,73 @@ resource "aws_cognito_user_pool" "user_pool" {
     require_uppercase = true
   }
 
+  # --- NUEVO: Atributo personalizado 'patient_id' ---
+  # Esto nos permitirá vincular una cuenta de usuario (email) con un ID de paciente en la BD
+  schema {
+    name                = "patient_id"
+    attribute_data_type = "String"
+    mutable             = true
+    required            = false
+    
+    string_attribute_constraints {
+      min_length = 1
+      max_length = 50
+    }
+  }
+
   tags = {
     Name = "healthtrends-user-pool"
   }
 }
 
-# --- 2. User Pool Client (La "App" que se conecta) ---
-# Esto es lo que nuestra API y frontend usarán para hablar con Cognito.
+# --- 2. Cliente de la App (Para React) ---
 resource "aws_cognito_user_pool_client" "app_client" {
   name = "healthtrends-app-client"
 
   user_pool_id = aws_cognito_user_pool.user_pool.id
-
-  # Evita que el cliente genere un "secreto".
-  # Útil para aplicaciones de frontend (JavaScript).
+  
+  # Importante para React: No generar secreto
   generate_secret = false
 
-  # Define los métodos de autenticación permitidos
+  # Flujos de autenticación permitidos
   explicit_auth_flows = [
     "ALLOW_USER_PASSWORD_AUTH",
-    "ALLOW_REFRESH_TOKEN_AUTH"
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH"
   ]
 }
 
-# --- 3. Outputs (Opcional pero recomendado) ---
-# Exporta los IDs para que otros servicios (como API Gateway) puedan usarlos.
+# --- 3. Grupos de Usuarios (Roles) ---
+
+# Grupo: Laboratorios (Quienes suben datos)
+resource "aws_cognito_user_group" "labs_group" {
+  name         = "Labs"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  description  = "Personal autorizado para subir resultados via API"
+  precedence   = 1
+}
+
+# Grupo: Doctores (Quienes ven todo)
+resource "aws_cognito_user_group" "doctors_group" {
+  name         = "Doctors"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  description  = "Médicos con acceso a búsqueda global"
+  precedence   = 2
+}
+
+# Grupo: Pacientes (Quienes solo ven lo suyo)
+resource "aws_cognito_user_group" "patients_group" {
+  name         = "Patients"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  description  = "Pacientes con acceso de solo lectura a sus propios datos"
+  precedence   = 3
+}
+
+# --- Outputs ---
 output "cognito_user_pool_id" {
-  description = "El ID del User Pool de Cognito"
-  value       = aws_cognito_user_pool.user_pool.id
+  value = aws_cognito_user_pool.user_pool.id
 }
 
 output "cognito_app_client_id" {
-  description = "El ID del App Client de Cognito"
-  value       = aws_cognito_user_pool_client.app_client.id
+  value = aws_cognito_user_pool_client.app_client.id
 }
