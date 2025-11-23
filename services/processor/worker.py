@@ -134,14 +134,19 @@ def main_loop():
             print(f"Error en el bucle principal: {e}")
             time.sleep(5) # Esperar un poco antes de reintentar
 
+# ... (Todo el código de arriba se queda IGUAL, no lo cambies) ...
+
+# ... (Funciones get_db_password, connect_to_db, process_message, main_loop IGUALES) ...
+
 if __name__ == "__main__":
-    # --- Script para crear la tabla (Tarea 3.1b) ---
-    # Antes de iniciar el bucle, nos aseguramos de que la tabla exista.
+    # --- Script para crear las tablas (Tarea 11.1) ---
     try:
         password = get_db_password()
         connection = connect_to_db(password)
         with connection.cursor() as c:
-            print("Asegurando que la tabla 'lab_results' exista...")
+            print("Verificando tablas en la base de datos...")
+            
+            # 1. Tabla de Resultados (Ya existía)
             c.execute("""
             CREATE TABLE IF NOT EXISTS lab_results (
                 id SERIAL PRIMARY KEY,
@@ -154,8 +159,22 @@ if __name__ == "__main__":
                 ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """)
+            
+            # 2. NUEVA TABLA: Perfiles de Pacientes
+            # Aquí guardaremos lo que capturemos en el registro
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS patient_profiles (
+                patient_id VARCHAR(100) PRIMARY KEY, -- El email o username de Cognito
+                full_name VARCHAR(200),
+                dob DATE,
+                gender VARCHAR(20),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            
             connection.commit()
-            print("Tabla 'lab_results' lista.")
+            print("✅ Tablas 'lab_results' y 'patient_profiles' listas.")
+            
         connection.close()
 
         # Iniciar el bucle del worker
@@ -163,4 +182,4 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"Error crítico al iniciar el worker: {e}")
-        exit(1) # Salir si no se puede conectar o crear la tabla
+        exit(1)
