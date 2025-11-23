@@ -1,78 +1,94 @@
-import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
-import '@aws-amplify/ui-react/styles.css';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { fetchAuthSession, signOut } from 'aws-amplify/auth';
+import { useState, useEffect } from 'react';
 
-// Importamos TODOS los componentes
+// Componentes
+import Landing from './components/Landing';
+import LoginPatient from './components/LoginPatient';
+import LoginStaff from './components/LoginStaff';
 import LabDashboard from './components/LabDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import PatientDashboard from './components/PatientDashboard';
-import AdminDashboard from './components/AdminDashboard'; // <--- NUEVO
+import AdminDashboard from './components/AdminDashboard';
 
-function RoleRouter({ user, signOut }) {
+// --- COMPONENTE PROTEGIDO (DASHBOARD) ---
+// Este es el que ya tenías, pero ahora vive dentro de una ruta protegida
+function DashboardLayout() {
+  const [user, setUser] = useState(null);
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const checkGroup = async () => {
-      try {
-        const session = await fetchAuthSession();
-        const idToken = session.tokens.idToken;
-        const groups = idToken.payload['cognito:groups'] || [];
-        
-        // Lógica de prioridad (Admin gana a todo)
-        if (groups.includes('Admins')) setGroup('Admins'); // <--- NUEVO
-        else if (groups.includes('Labs')) setGroup('Labs');
-        else if (groups.includes('Doctors')) setGroup('Doctors');
-        else if (groups.includes('Patients')) setGroup('Patients');
-        else setGroup('Unknown');
-      } catch (e) {
-        console.error(e);
-      }
-      setLoading(false);
-    };
-    checkGroup();
+    checkUser();
   }, []);
 
-  if (loading) return <div style={{padding: 20}}>Cargando perfil...</div>;
+  const checkUser = async () => {
+    try {
+      const session = await fetchAuthSession();
+      if (!session.tokens) {
+        navigate('/'); // Si no hay sesión, volver al inicio
+        return;
+      }
+      
+      // Obtener datos del usuario
+      const idToken = session.tokens.idToken;
+      setUser({ username: idToken.payload['cognito:username'] });
+      
+      // Obtener grupos
+      const groups = idToken.payload['cognito:groups'] || [];
+      if (groups.includes('Admins')) setGroup('Admins');
+      else if (groups.includes('Labs')) setGroup('Labs');
+      else if (groups.includes('Doctors')) setGroup('Doctors');
+      else if (groups.includes('Patients')) setGroup('Patients');
+      else setGroup('Unknown');
+
+    } catch (e) {
+      navigate('/');
+    }
+    setLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  if (loading) return <div>Cargando...</div>;
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
-      {/* Barra Superior */}
-      <div style={{ background: '#f0f0f0', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd' }}>
-        <h1 style={{ margin: 0, fontSize: '1.2rem', color: '#333' }}>🏥 HealthTrends <span style={{fontSize: '0.8rem', color: '#666'}}>| {group}</span></h1>
-        <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-            <span>Hola, <b>{user.username}</b></span>
-            <button onClick={signOut} style={{ background: '#ff4444', color: 'white', border:'none', padding:'8px 12px', borderRadius: '4px', cursor:'pointer' }}>
-            Cerrar Sesión
-            </button>
-        </div>
+      {/* Navbar */}
+      <div style={{ background: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <h1 style={{ margin: 0, fontSize: '1.2rem', color: '#333', cursor: 'pointer' }} onClick={() => navigate('/')}>🏥 HealthTrends <span style={{fontSize: '0.8rem', color: '#888'}}>| {group}</span></h1>
+        <button onClick={handleSignOut} style={{ background: '#ff4444', color: 'white', border:'none', padding:'8px 12px', borderRadius: '4px', cursor:'pointer' }}>
+          Cerrar Sesión
+        </button>
       </div>
 
-      {/* Contenido Principal según el Rol */}
+      {/* Contenido */}
       <div style={{ padding: '20px' }}>
-        {group === 'Admins' && <AdminDashboard />} {/* <--- NUEVO */}
+        {group === 'Admins' && <AdminDashboard />}
         {group === 'Labs' && <LabDashboard />}
         {group === 'Doctors' && <DoctorDashboard />}
         {group === 'Patients' && <PatientDashboard user={user} />}
-        
-        {group === 'Unknown' && (
-            <div style={{ textAlign: 'center', marginTop: '50px' }}>
-            <h3>⚠️ Acceso Limitado</h3>
-            <p>Tu usuario no tiene un rol asignado.</p>
-            </div>
-        )}
+        {group === 'Unknown' && <div>⚠️ Usuario sin rol asignado.</div>}
       </div>
     </div>
   );
 }
 
+// --- RUTAS PRINCIPALES ---
 export default function App() {
   return (
-    <Authenticator>
-      {({ signOut, user }) => (
-        <RoleRouter user={user} signOut={signOut} />
-      )}
-    </Authenticator>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/auth/patient" element={<LoginPatient />} />
+        <Route path="/auth/staff" element={<LoginStaff />} />
+        <Route path="/dashboard" element={<DashboardLayout />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

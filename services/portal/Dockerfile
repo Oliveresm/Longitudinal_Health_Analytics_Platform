@@ -1,14 +1,15 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /code
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+# Copiamos la carpeta 'app' completa
+COPY ./app ./app
 
-# Exponer el puerto 80
+# Exponer el puerto
 EXPOSE 80
 
-# Ejecutar con uvicorn en el puerto 80
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "80"]
+# Ejecutar usando la ruta del módulo (app.main:app)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]

@@ -2,7 +2,7 @@
 resource "aws_iam_role" "lambda_ingest_role" {
   name = "healthtrends-lambda-ingest-role"
 
-  # Política de confianza: permite que el servicio Lambda asuma este rol
+  # Política de confianza
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
@@ -21,39 +21,34 @@ resource "aws_iam_role" "lambda_ingest_role" {
   }
 }
 
-# --- Política de IAM: Permiso para SQS ---
+# --- Política de IAM: Permiso para SQS (Ingesta) ---
 resource "aws_iam_role_policy" "lambda_ingest_policy_sqs" {
   name = "healthtrends-lambda-ingest-policy-sqs"
   role = aws_iam_role.lambda_ingest_role.id
 
-  # Política: permite a esta Lambda enviar mensajes a NUESTRA cola SQS
   policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
       {
         Action   = "sqs:SendMessage",
         Effect   = "Allow",
-        # Asegura que solo pueda escribir en esta cola específica
-        Resource = aws_sqs_queue.new_results_queue.arn 
+        Resource = aws_sqs_queue.new_results_queue.arn
       }
     ]
   })
 }
 
-# --- Política de IAM: Permiso para escribir Logs ---
-# (Recomendado para depuración)
+# --- Política de IAM: Permiso para Logs (Ingesta) ---
 resource "aws_iam_role_policy_attachment" "lambda_ingest_logs" {
   role       = aws_iam_role.lambda_ingest_role.name
-  # Política gestionada por AWS para escribir logs en CloudWatch
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 
-# --- Rol de IAM para el Servicio ECS "Processor" y "Portal" ---
+# --- Rol de IAM para el Servicio ECS (Processor y Portal) ---
 resource "aws_iam_role" "ecs_processor_task_role" {
   name = "healthtrends-ecs-processor-task-role"
 
-  # Política de confianza: permite que las tareas de ECS asuman este rol
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
@@ -72,7 +67,7 @@ resource "aws_iam_role" "ecs_processor_task_role" {
   }
 }
 
-# --- Política de IAM: Permisos para SQS, Secrets, Logs y COGNITO ---
+# --- Política de IAM: Permisos Completos para ECS ---
 resource "aws_iam_role_policy" "ecs_processor_policy" {
   name = "healthtrends-ecs-processor-policy"
   role = aws_iam_role.ecs_processor_task_role.id
@@ -81,7 +76,7 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
     Version   = "2012-10-17",
     Statement = [
       {
-        # Permiso para SQS (Leer y Borrar mensajes)
+        # SQS
         Action = [
           "sqs:ReceiveMessage",
           "sqs:DeleteMessage",
@@ -91,14 +86,13 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
         Resource = aws_sqs_queue.new_results_queue.arn
       },
       {
-        # Permiso para leer el secreto de la contraseña de RDS
+        # Secrets Manager
         Action   = "secretsmanager:GetSecretValue",
         Effect   = "Allow",
         Resource = aws_secretsmanager_secret.db_password_secret.arn
       },
       {
-        # Permisos básicos para que Fargate funcione (como pull de ECR)
-        # y para escribir logs en CloudWatch
+        # ECR y Logs
         Action = [
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
@@ -109,11 +103,10 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
           "logs:PutLogEvents"
         ],
         Effect   = "Allow",
-        Resource = "*" # Estos permisos son generales
+        Resource = "*"
       },
       {
-        # --- NUEVO: PERMISOS DE ADMINISTRACIÓN DE USUARIOS ---
-        # Permite a la API (Portal) añadir/quitar usuarios de grupos en Cognito
+        # COGNITO (Gestión de Usuarios)
         Action = [
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
@@ -142,7 +135,7 @@ resource "aws_iam_role" "lambda_trigger_role" {
   })
 }
 
-# Permiso para añadir usuarios a grupos
+# --- Política para el Trigger ---
 resource "aws_iam_role_policy" "lambda_trigger_policy" {
   name = "healthtrends-lambda-trigger-policy"
   role = aws_iam_role.lambda_trigger_role.id
@@ -156,7 +149,11 @@ resource "aws_iam_role_policy" "lambda_trigger_policy" {
         Resource = aws_cognito_user_pool.user_pool.arn
       },
       {
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+        Action = [
+          "logs:CreateLogGroup", 
+          "logs:CreateLogStream", 
+          "logs:PutLogEvents"
+        ],
         Effect   = "Allow",
         Resource = "*"
       }
