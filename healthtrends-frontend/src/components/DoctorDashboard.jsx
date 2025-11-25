@@ -73,7 +73,7 @@ export default function DoctorDashboard() {
                 background: '#f0f8ff', 
                 padding: '20px', 
                 borderRadius: '8px', 
-                alignItems: 'flex-end' // ✅ Alinea los inputs abajo
+                alignItems: 'flex-start' // ✅ CORRECCIÓN: Alineamos ARRIBA para evitar saltos
             }}>
                 
                 {/* 1. Seleccionar Paciente */}
@@ -97,10 +97,15 @@ export default function DoctorDashboard() {
                             value={selectedTest} 
                             style={{
                                 width: '100%', 
-                                padding: '8px', 
-                                border: '1px solid #ccc', 
+                                padding: '0 12px', // Ajuste de padding horizontal
+                                border: '1px solid #ced4da', 
                                 borderRadius: '4px',
-                                height: '35px' // Altura fija para coincidir con el input de búsqueda
+                                height: '38px', // ✅ ALTURA EXACTA PARA COINCIDIR CON EL BUSCADOR
+                                fontSize: '1em',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxSizing: 'border-box', // ✅ Asegura que el borde no aumente el tamaño
+                                backgroundColor: 'white'
                             }}
                         >
                             {availableTests.map(t => (
@@ -109,14 +114,16 @@ export default function DoctorDashboard() {
                         </select>
                     ) : (
                         <div style={{
-                            padding: '8px', 
+                            padding: '0 12px', 
                             background: '#e9ecef', 
                             borderRadius: '4px', 
                             color: '#6c757d', 
                             fontStyle: 'italic',
-                            height: '17px', // Ajuste visual para mantener altura
+                            height: '38px', // ✅ Altura consistente
                             display: 'flex',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            border: '1px solid #e9ecef',
+                            boxSizing: 'border-box'
                         }}>
                             {selectedPatientId ? "Sin exámenes disponibles" : "Esperando selección..."}
                         </div>

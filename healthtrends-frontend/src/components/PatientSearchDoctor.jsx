@@ -59,9 +59,9 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
         onSelect(patient.id);
     };
 
-    // ✅ CAMBIO: Altura unificada y colores
-    const commonHeight = '38px'; 
-    const borderColor = '#ced4da';
+    // Estilos unificados para garantizar alineación
+    const heightStyle = '38px';
+    const borderStyle = '1px solid #ced4da';
 
     return (
         <div style={{ position: 'relative', width: '100%', minWidth: '300px' }}>
@@ -71,23 +71,23 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
                     value={searchField}
                     onChange={e => setSearchField(e.target.value)}
                     style={{ 
-                        height: commonHeight,
+                        height: heightStyle,
                         padding: '0 10px', 
-                        border: `1px solid ${borderColor}`, 
+                        border: borderStyle, 
                         borderRight: 'none', 
                         borderRadius: '4px 0 0 4px', 
-                        backgroundColor: '#e9ecef', // Un gris muy suave para diferenciarlo
+                        backgroundColor: '#f8f9fa',
                         cursor: 'pointer', 
                         fontSize: '0.9em',
                         width: 'auto',
                         maxWidth: '85px',
                         outline: 'none',
                         color: '#495057',
-                        boxSizing: 'border-box' // ✅ Importante para el cálculo de altura
+                        boxSizing: 'border-box'
                     }}
                 >
                     <option value="name">Nom</option>
-                    <option value="email">Email</option>
+                    <option value="email">@</option>
                     <option value="id">ID</option>
                 </select>
                 
@@ -99,13 +99,13 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
                     onFocus={() => setShowDropdown(true)}
                     style={{ 
                         flex: 1, 
-                        height: commonHeight,
+                        height: heightStyle,
                         padding: '0 12px', 
-                        border: `1px solid ${borderColor}`, 
+                        border: borderStyle, 
                         borderRadius: '0 4px 4px 0',
                         outline: 'none',
                         fontSize: '1em',
-                        boxSizing: 'border-box' // ✅ Importante
+                        boxSizing: 'border-box' 
                     }}
                     disabled={loading}
                 />
