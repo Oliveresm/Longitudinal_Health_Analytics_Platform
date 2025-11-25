@@ -20,10 +20,10 @@ def startup_event():
     init_db()
 
 # Registrar Rutas
-app.include_router(admin.router)
-app.include_router(catalog.router)
-app.include_router(patients.router)
-app.include_router(trends.router)
+app.include_router(admin.router, prefix="/admin")       # Rutas de administración
+app.include_router(catalog.router, prefix="/catalog")   # Ahora existirá /catalog/tests
+app.include_router(patients.router, prefix="/patients") # Ahora existirá /patients/profile
+app.include_router(trends.router, prefix="/trends")     # Para tendencias
 
 @app.get("/")
 def read_root():

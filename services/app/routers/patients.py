@@ -6,6 +6,7 @@ from ..models import ProfileRequest
 
 router = APIRouter(tags=["Patients"])
 
+# ✅ Ruta: /patients/profile
 @router.post("/profile")
 def update_profile(profile: ProfileRequest, user: dict = Depends(get_current_user)):
     patient_id = user.get("username") or user.get("sub")
@@ -22,27 +23,40 @@ def update_profile(profile: ProfileRequest, user: dict = Depends(get_current_use
             cursor.execute(sql, (patient_id, profile.full_name, profile.dob, profile.gender, email))
             conn.commit()
             return {"message": "Perfil actualizado"}
-    finally: conn.close()
+    finally: 
+        conn.close()
 
-@router.get("/patients")
+# ✅ CORREGIDO: De "/patients" a "/"
+# Ruta final: /patients (Porque main.py ya agrega el prefijo "/patients")
+@router.get("/")
 def list_patients(user: dict = Depends(get_current_user)):
     groups = user.get("cognito:groups", [])
+    
+    # Verificación de roles
     if "Doctors" not in groups and "Labs" not in groups and "Admins" not in groups:
         raise HTTPException(status_code=403, detail="Acceso denegado.")
+    
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # SQL para unir perfiles con resultados de laboratorio
             sql = """
             SELECT COALESCE(p.patient_id, l.patient_id) as id, COALESCE(p.full_name, 'Sin Nombre') as name, p.email
             FROM patient_profiles p FULL OUTER JOIN (SELECT DISTINCT patient_id FROM lab_results) l ON p.patient_id = l.patient_id ORDER BY name;
             """
             cursor.execute(sql)
             results = cursor.fetchall()
+            
+            # Formateo de la respuesta para el Frontend
             formatted = []
             for row in results:
                 display = row['name']
-                if row.get('email'): display += f" ({row['email']})"
-                elif row['name'] == 'Sin Nombre': display += f" (ID: {row['id'][:8]}...)"
+                if row.get('email'): 
+                    display += f" ({row['email']})"
+                elif row['name'] == 'Sin Nombre': 
+                    display += f" (ID: {row['id'][:8]}...)"
                 formatted.append({"id": row['id'], "name": display})
+            
             return formatted
-    finally: conn.close()
+    finally: 
+        conn.close()

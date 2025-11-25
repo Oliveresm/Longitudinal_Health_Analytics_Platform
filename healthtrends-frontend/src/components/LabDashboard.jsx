@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import PatientSearch from './PatientSearch'; // <--- IMPORTAR EL BUSCADOR
+import PatientSearch from './PatientSearch'; 
 
-// --- URLs FIJAS (Para evitar errores con .env) ---
+// --- URLs FIJAS ---
 const INGEST_URL = 'https://hqtxi2jp9l.execute-api.us-east-1.amazonaws.com/prod/ingest';
 const READ_URL = 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
 
@@ -24,13 +24,13 @@ export default function LabDashboard() {
       const session = await fetchAuthSession();
       const token = session.tokens.idToken.toString();
       
-      // Llamamos al endpoint /tests
+      // ✅ CORRECTO: Usamos /catalog/tests
       const response = await axios.get(`${READ_URL}/catalog/tests`, {
           headers: { 'Authorization': token }
       });
       setTestTypes(response.data);
       
-      // Seleccionar el primero por defecto
+      // Seleccionar el primero por defecto si la lista tiene datos
       if(response.data.length > 0 && !form.test_code) {
           setForm(f => ({ ...f, test_code: response.data[0].code }));
       }
@@ -51,14 +51,17 @@ export default function LabDashboard() {
       const session = await fetchAuthSession();
       const token = session.tokens.idToken.toString();
 
-      await axios.post(`${READ_URL}/tests`, newTest, { 
+      // ✅ CORRECCIÓN: Agregamos "/catalog" aquí también
+      // Antes: ${READ_URL}/tests -> Error 404
+      // Ahora: ${READ_URL}/catalog/tests -> Correcto
+      await axios.post(`${READ_URL}/catalog/tests`, newTest, { 
           headers: { 'Authorization': token } 
       });
 
       setStatus("✅ Nuevo examen creado exitosamente.");
       setShowNewTestForm(false); 
       setNewTest({ code: "", name: "", unit: "" });
-      loadCatalog(); 
+      loadCatalog(); // Recargamos la lista para ver el nuevo item
 
     } catch (error) {
       console.error(error);
@@ -82,10 +85,11 @@ export default function LabDashboard() {
       const session = await fetchAuthSession();
       const token = session.tokens.idToken.toString();
       
+      // Buscamos los datos completos del examen seleccionado
       const selectedTest = testTypes.find(t => t.code === form.test_code);
 
       const payload = {
-        patient_id: form.patient_id, // Usamos el ID seleccionado del buscador
+        patient_id: form.patient_id, 
         test_code: form.test_code,
         test_name: selectedTest?.name || "Unknown",
         value: parseFloat(form.value),
@@ -118,10 +122,10 @@ export default function LabDashboard() {
         
         <form onSubmit={uploadData} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           
-          {/* AQUÍ ESTÁ EL CAMBIO: BUSCADOR DE PACIENTES */}
+          {/* BUSCADOR DE PACIENTES */}
           <div style={{marginBottom: '5px'}}>
-              <PatientSearch onSelect={(id) => setForm({...form, patient_id: id})} />
-              {form.patient_id && <small style={{color:'green'}}>Seleccionado: {form.patient_id}</small>}
+              <PatientSearch onSelect={(id) => setForm(f => ({...f, patient_id: id}))} />
+              {form.patient_id && <small style={{color:'green'}}>ID Seleccionado: {form.patient_id}</small>}
           </div>
           
           <div>
@@ -132,6 +136,7 @@ export default function LabDashboard() {
                       value={form.test_code} 
                       onChange={e => setForm({...form, test_code: e.target.value})}
                   >
+                      {/* ✅ ESTO YA ESTÁ CORRECTO: Usamos map con propiedades, no objetos enteros */}
                       {testTypes.map(t => (
                           <option key={t.code} value={t.code}>{t.name} ({t.unit})</option>
                       ))}
@@ -159,7 +164,7 @@ export default function LabDashboard() {
         </form>
       </div>
 
-      {/* TARJETA 2: CREAR NUEVO TIPO DE EXAMEN (CONDICIONAL) */}
+      {/* TARJETA 2: CREAR NUEVO TIPO DE EXAMEN */}
       {showNewTestForm && (
         <div style={{ border: '1px solid #28a745', padding: '15px', borderRadius: '8px', background: '#f0fff4' }}>
           <h4 style={{marginTop: 0, color: '#28a745'}}>Definir Nuevo Tipo de Examen</h4>

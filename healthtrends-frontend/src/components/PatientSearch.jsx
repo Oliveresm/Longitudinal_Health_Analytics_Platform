@@ -18,6 +18,7 @@ export default function PatientSearch({ onSelect }) {
       try {
         const session = await fetchAuthSession();
         const token = session.tokens.idToken.toString();
+        // Backend devuelve una lista de objetos: [{ id: "...", name: "Juan (email...)" }, ...]
         const response = await axios.get(`${READ_URL}/patients`, {
             headers: { 'Authorization': token }
         });
@@ -35,22 +36,19 @@ export default function PatientSearch({ onSelect }) {
         return;
     }
     const lowerQ = query.toLowerCase();
+    
+    // CORRECCIÓN: Accedemos a p.name porque p es un objeto
     const results = patients.filter(p => 
-        // Buscamos tanto en el texto completo como en el ID si está disponible
-        p.toLowerCase().includes(lowerQ)
+        p.name && p.name.toLowerCase().includes(lowerQ)
     );
     setFiltered(results);
   }, [query, patients]);
 
-  const handleSelect = (patientString) => {
-      // Extraer ID si viene en formato "Nombre (ID)"
-      let id = patientString;
-      const match = patientString.match(/\(([^)]+)\)$/);
-      if (match) id = match[1];
-
-      setQuery(patientString);
+  // CORRECCIÓN: Simplificamos la selección usando el objeto directo
+  const handleSelect = (patient) => {
+      setQuery(patient.name); // Mostramos el nombre en el input
       setShowDropdown(false);
-      onSelect(id); // Enviamos el ID limpio al padre
+      onSelect(patient.id);   // Enviamos el ID limpio al padre (sin regex)
   };
 
   return (
@@ -72,15 +70,16 @@ export default function PatientSearch({ onSelect }) {
             listStyle: 'none', padding: 0, margin: 0, zIndex: 1000,
             maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
         }}>
-            {filtered.map((p, index) => (
+            {filtered.map((p) => (
                 <li 
-                    key={index} 
+                    key={p.id} // CORRECCIÓN: Usamos el ID único como key
                     onClick={() => handleSelect(p)}
                     style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
                     onMouseEnter={(e) => e.target.style.background = '#f0f0f0'}
                     onMouseLeave={(e) => e.target.style.background = 'white'}
                 >
-                    {p}
+                    {/* CORRECCIÓN: Renderizamos solo el nombre, no el objeto entero */}
+                    {p.name}
                 </li>
             ))}
         </ul>

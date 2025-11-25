@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /code
 
-COPY requirements.txt .
+# ✅ CORRECCIÓN 1: El archivo requirements.txt está dentro de la carpeta 'portal'
+COPY portal/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiamos la carpeta 'app' completa
-COPY ./app ./app
+# ✅ CORRECCIÓN 2: La carpeta 'app' está al lado de 'portal' (dentro de 'services')
+COPY app app
 
 # Exponer el puerto
 EXPOSE 80
