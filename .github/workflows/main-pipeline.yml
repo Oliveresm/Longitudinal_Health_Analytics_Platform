@@ -76,7 +76,11 @@ jobs:
 
           echo "🔨 Building Frontend Image..."
           # ⚠️ IMPORTANTE: Asegúrate de que tu carpeta se llama 'healthtrends-frontend'
-          docker build -t $IMAGE_NAME healthtrends-frontend/ 
+          # Pasamos los Secretos de GitHub como argumentos de construcción
+          docker build \
+            --build-arg VITE_USER_POOL_ID=${{ secrets.VITE_USER_POOL_ID }} \
+            --build-arg VITE_APP_CLIENT_ID=${{ secrets.VITE_APP_CLIENT_ID }} \
+            -t $IMAGE_NAME healthtrends-frontend/ 
 
           echo "🏷️ Pushing Frontend Image..."
           docker tag $IMAGE_NAME $FULL_IMAGE_NAME

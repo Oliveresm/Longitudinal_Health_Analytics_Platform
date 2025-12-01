@@ -3,6 +3,17 @@ FROM node:18-alpine as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
+
+# --- INYECCIÓN DE VARIABLES DE ENTORNO ---
+# 1. Recibimos los argumentos desde el pipeline (GitHub Actions)
+ARG VITE_USER_POOL_ID
+ARG VITE_APP_CLIENT_ID
+
+# 2. Las exponemos como variables de entorno para que Vite las lea al construir
+ENV VITE_USER_POOL_ID=$VITE_USER_POOL_ID
+ENV VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID
+# -----------------------------------------
+
 COPY . .
 RUN npm run build
 
