@@ -4,19 +4,12 @@ import App from './App.jsx'
 import './index.css'
 import { Amplify } from 'aws-amplify';
 
-// --- DIAGNÓSTICO (Opcional: puedes quitarlo en producción) ---
-console.log("Configurando Amplify con:");
-console.log("User Pool ID:", import.meta.env.VITE_USER_POOL_ID);
-console.log("Client ID:", import.meta.env.VITE_APP_CLIENT_ID);
-// -----------------------------------------------------------
-
-// Configuración de Amplify con las variables de entorno inyectadas por Docker/Vite
 Amplify.configure({
   Auth: {
     Cognito: {
-      // Asegúrate de que los nombres de las variables coincidan con los del Dockerfile
-      userPoolId: import.meta.env.VITE_USER_POOL_ID,
-      userPoolClientId: import.meta.env.VITE_APP_CLIENT_ID,
+      // 👇 PEGA TUS VALORES REALES AQUÍ DIRECTAMENTE (con comillas)
+      userPoolId: "us-east-1_wi38Rkw09",
+      userPoolClientId: "s2dj8b32cv3fh7nphllpupame",
       loginWith: {
         email: true,
       },
