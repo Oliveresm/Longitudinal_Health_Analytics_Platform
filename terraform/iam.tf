@@ -7,8 +7,8 @@ resource "aws_iam_role" "lambda_ingest_role" {
     Version   = "2012-10-17",
     Statement = [
       {
-        Action  = "sts:AssumeRole",
-        Effect  = "Allow",
+        Action    = "sts:AssumeRole",
+        Effect    = "Allow",
         Principal = {
           Service = "lambda.amazonaws.com"
         }
@@ -30,8 +30,8 @@ resource "aws_iam_role_policy" "lambda_ingest_policy_sqs" {
     Version   = "2012-10-17",
     Statement = [
       {
-        Action  = "sqs:SendMessage",
-        Effect  = "Allow",
+        Action   = "sqs:SendMessage",
+        Effect   = "Allow",
         Resource = aws_sqs_queue.new_results_queue.arn
       }
     ]
@@ -53,8 +53,8 @@ resource "aws_iam_role" "ecs_processor_task_role" {
     Version   = "2012-10-17",
     Statement = [
       {
-        Action  = "sts:AssumeRole",
-        Effect  = "Allow",
+        Action    = "sts:AssumeRole",
+        Effect    = "Allow",
         Principal = {
           Service = "ecs-tasks.amazonaws.com"
         }
@@ -82,13 +82,13 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
           "sqs:DeleteMessage",
           "sqs:GetQueueAttributes"
         ],
-        Effect  = "Allow",
+        Effect   = "Allow",
         Resource = aws_sqs_queue.new_results_queue.arn
       },
       {
         # Secrets Manager
-        Action  = "secretsmanager:GetSecretValue",
-        Effect  = "Allow",
+        Action   = "secretsmanager:GetSecretValue",
+        Effect   = "Allow",
         Resource = aws_secretsmanager_secret.db_password_secret.arn
       },
       {
@@ -102,7 +102,7 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ],
-        Effect  = "Allow",
+        Effect   = "Allow",
         Resource = "*"
       },
       {
@@ -111,12 +111,12 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
           "cognito-idp:ListUsers",
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
-          "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminListGroupsForUser",  # ✅ Necesario para limpiar roles
           "cognito-idp:AdminGetUser",
-          "cognito-idp:AdminDeleteUser",
+          "cognito-idp:AdminDeleteUser",         # ✅ Necesario para borrar cuentas
           "cognito-idp:ListGroups"
         ],
-        Effect  = "Allow",
+        Effect   = "Allow",
         Resource = aws_cognito_user_pool.user_pool.arn
       }
     ]
@@ -130,8 +130,8 @@ resource "aws_iam_role" "lambda_trigger_role" {
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [{
-      Action  = "sts:AssumeRole",
-      Effect  = "Allow",
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
       Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
@@ -146,51 +146,20 @@ resource "aws_iam_role_policy" "lambda_trigger_policy" {
     Version   = "2012-10-17",
     Statement = [
       {
-        Action  = "cognito-idp:AdminAddUserToGroup",
-        Effect  = "Allow",
+        Action   = "cognito-idp:AdminAddUserToGroup",
+        Effect   = "Allow",
         Resource = aws_cognito_user_pool.user_pool.arn
       },
       {
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
+          "logs:CreateLogGroup", 
+          "logs:CreateLogStream", 
           "logs:PutLogEvents"
         ],
-        Effect  = "Allow",
+        Effect   = "Allow",
         Resource = "*"
       }
     ]
   })
 }
 
-
-# --- Configuración y Permisos de SES para la Aplicación (FastAPI) ---
-
-# Define la política de permiso de envío de correo
-data "aws_iam_policy_document" "ses_send_access_policy_document" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ses:SendEmail",
-      "ses:SendRawEmail",
-    ]
-    resources = [
-      # Referencia al ARN del correo definido en ses.tf
-      aws_ses_email_identity.sender_email_identity.arn
-    ]
-  }
-}
-
-# 1. Crea la política de IAM para SES
-resource "aws_iam_policy" "ses_send_policy" {
-  # Asegura que la variable 'environment' está declarada en variables.tf
-  name    = "FastAPISESSendPolicy-${var.environment}" 
-  policy = data.aws_iam_policy_document.ses_send_access_policy_document.json
-}
-
-# 2. Adjunta la nueva política al rol de ECS/FastAPI de tu aplicación
-resource "aws_iam_role_policy_attachment" "ses_attach_to_app_role" {
-  # Usamos el rol de ECS Processor que declaraste arriba.
-  role       = aws_iam_role.ecs_processor_task_role.name
-  policy_arn = aws_iam_policy.ses_send_policy.arn
-}
