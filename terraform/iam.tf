@@ -73,7 +73,7 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
   role = aws_iam_role.ecs_processor_task_role.id
 
   policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [
       {
         # SQS
@@ -106,13 +106,15 @@ resource "aws_iam_role_policy" "ecs_processor_policy" {
         Resource = "*"
       },
       {
-        # COGNITO (Gestión de Usuarios)
+        # COGNITO (Gestión de Usuarios - Permisos Ampliados)
         Action = [
+          "cognito-idp:ListUsers",
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
-          "cognito-idp:ListUsers",
-          "cognito-idp:ListGroups",
-          "cognito-idp:AdminGetUser"
+          "cognito-idp:AdminListGroupsForUser",  # ✅ Necesario para limpiar roles
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminDeleteUser",         # ✅ Necesario para borrar cuentas
+          "cognito-idp:ListGroups"
         ],
         Effect   = "Allow",
         Resource = aws_cognito_user_pool.user_pool.arn

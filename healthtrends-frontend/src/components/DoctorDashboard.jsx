@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import PatientSearchDoctor from './PatientSearchDoctor'; // ✅ Usamos el componente específico para doctores
+import PatientSearchDoctor from './PatientSearchDoctor'; 
 
 // URL del ALB
 const READ_URL = 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
@@ -12,12 +12,17 @@ export default function DoctorDashboard() {
     const [availableTests, setAvailableTests] = useState([]);
     const [selectedTest, setSelectedTest] = useState(""); 
     const [history, setHistory] = useState([]);
+    
+    // ✅ 1. Nuevos estados para fechas
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Cargar exámenes cuando cambia el paciente
     useEffect(() => {
         if (!selectedPatientId) {
             setAvailableTests([]);
             setHistory([]);
+            setSelectedTest("");
             return;
         }
 
@@ -43,7 +48,7 @@ export default function DoctorDashboard() {
         loadPatientTests();
     }, [selectedPatientId]);
 
-    // Cargar gráfica
+    // ✅ 2. Cargar gráfica (Ahora depende también de startDate y endDate)
     useEffect(() => {
         if (!selectedPatientId || !selectedTest) return;
         
@@ -51,20 +56,28 @@ export default function DoctorDashboard() {
             try {
                 const session = await fetchAuthSession();
                 const token = session.tokens.idToken.toString();
+
+                // Preparamos los parámetros
+                const params = {};
+                if (startDate) params.start_date = startDate;
+                if (endDate) params.end_date = endDate;
+
                 const res = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/trends/${selectedTest}`, {
-                    headers: { 'Authorization': token }
+                    headers: { 'Authorization': token },
+                    params: params // Axios se encarga de armar ?start_date=...
                 });
+                
                 setHistory(res.data.history || []);
             } catch (err) { console.error(err); }
         };
         loadHistory();
-    }, [selectedPatientId, selectedTest]);
+    }, [selectedPatientId, selectedTest, startDate, endDate]); // Se actualiza si cambian fechas
 
     return (
         <div style={{ padding: '20px' }}>
             <h2>👨‍⚕️ Portal Médico (Integrado)</h2>
             
-            {/* Barra de Herramientas Alineada */}
+            {/* Barra de Herramientas */}
             <div style={{ 
                 marginBottom: '20px', 
                 display: 'flex', 
@@ -73,21 +86,20 @@ export default function DoctorDashboard() {
                 background: '#f0f8ff', 
                 padding: '20px', 
                 borderRadius: '8px', 
-                alignItems: 'flex-start' // ✅ CORRECCIÓN: Alineamos ARRIBA para evitar saltos
+                alignItems: 'flex-start' 
             }}>
                 
                 {/* 1. Seleccionar Paciente */}
-                <div style={{ flex: 1, minWidth: '300px' }}>
+                <div style={{ flex: 1, minWidth: '250px' }}>
                     <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
                         1. Seleccionar Paciente:
                     </label>
-                    {/* ✅ Usamos el buscador compacto */}
                     <PatientSearchDoctor onSelect={setSelectedPatientId} selectedId={selectedPatientId} />
                     {selectedPatientId && <small style={{color:'#28a745', marginTop:'4px', display:'block'}}>✓ Paciente seleccionado</small>}
                 </div>
 
                 {/* 2. Seleccionar Examen */}
-                <div style={{ flex: 1, minWidth: '250px' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
                     <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
                         2. Ver Resultados de:
                     </label>
@@ -97,14 +109,13 @@ export default function DoctorDashboard() {
                             value={selectedTest} 
                             style={{
                                 width: '100%', 
-                                padding: '0 12px', // Ajuste de padding horizontal
+                                padding: '0 12px', 
                                 border: '1px solid #ced4da', 
                                 borderRadius: '4px',
-                                height: '38px', // ✅ ALTURA EXACTA PARA COINCIDIR CON EL BUSCADOR
+                                height: '38px',
                                 fontSize: '1em',
                                 outline: 'none',
                                 cursor: 'pointer',
-                                boxSizing: 'border-box', // ✅ Asegura que el borde no aumente el tamaño
                                 backgroundColor: 'white'
                             }}
                         >
@@ -119,15 +130,54 @@ export default function DoctorDashboard() {
                             borderRadius: '4px', 
                             color: '#6c757d', 
                             fontStyle: 'italic',
-                            height: '38px', // ✅ Altura consistente
+                            height: '38px', 
                             display: 'flex',
                             alignItems: 'center',
-                            border: '1px solid #e9ecef',
-                            boxSizing: 'border-box'
+                            border: '1px solid #e9ecef'
                         }}>
-                            {selectedPatientId ? "Sin exámenes disponibles" : "Esperando selección..."}
+                            {selectedPatientId ? "Sin exámenes" : "Esperando..."}
                         </div>
                     )}
+                </div>
+
+                {/* ✅ 3. Filtros de Fecha */}
+                <div style={{ flex: 1, minWidth: '250px', display: 'flex', gap: '10px' }}>
+                    <div style={{flex: 1}}>
+                        <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
+                            Desde:
+                        </label>
+                        <input 
+                            type="date" 
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            style={{
+                                width: '100%',
+                                height: '38px',
+                                padding: '0 10px',
+                                border: '1px solid #ced4da',
+                                borderRadius: '4px',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <div style={{flex: 1}}>
+                        <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
+                            Hasta:
+                        </label>
+                        <input 
+                            type="date" 
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            style={{
+                                width: '100%',
+                                height: '38px',
+                                padding: '0 10px',
+                                border: '1px solid #ced4da',
+                                borderRadius: '4px',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -137,9 +187,17 @@ export default function DoctorDashboard() {
                     <ResponsiveContainer>
                         <LineChart data={history}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                            <XAxis dataKey="test_date" stroke="#666" tick={{fontSize: 12}} />
+                            <XAxis 
+                                dataKey="test_date" 
+                                stroke="#666" 
+                                tick={{fontSize: 12}} 
+                                tickFormatter={(date) => new Date(date).toLocaleDateString()} // Formato de fecha legible
+                            />
                             <YAxis stroke="#666" tick={{fontSize: 12}} />
-                            <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'}} />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'}}
+                                labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            />
                             <Legend wrapperStyle={{paddingTop: '20px'}} />
                             <Line type="monotone" dataKey="value" stroke="#007acc" name="Valor Medido" strokeWidth={3} activeDot={{r:6}} />
                             <Line type="monotone" dataKey="moving_avg_3_points" stroke="#ff7300" name="Promedio Móvil (Tendencia)" strokeDasharray="5 5" strokeWidth={2} />
@@ -148,9 +206,11 @@ export default function DoctorDashboard() {
                 </div>
             ) : selectedPatientId && selectedTest ? (
                 <div style={{padding: '40px', textAlign: 'center', color: '#666', background: '#f9f9f9', borderRadius: '8px'}}>
-                    No hay datos históricos suficientes para graficar este examen.
+                    {startDate || endDate 
+                        ? "No hay datos en el rango de fechas seleccionado." 
+                        : "No hay datos históricos suficientes para graficar este examen."}
                 </div>
             ) : null}
         </div>
     );
-}
+}   

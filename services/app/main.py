@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import init_db
-from .routers import admin, catalog, patients, trends
+from .routers import admin, catalog, patients, trends, lab
 
 app = FastAPI(title="HealthTrends Enterprise API")
 
@@ -24,6 +24,7 @@ app.include_router(admin.router, prefix="/admin")       # Rutas de administraci�
 app.include_router(catalog.router, prefix="/catalog")   # Ahora existirá /catalog/tests
 app.include_router(patients.router, prefix="/patients") # Ahora existirá /patients/profile
 app.include_router(trends.router, prefix="/trends")     # Para tendencias
+app.include_router(lab.router) # <--- AGREGAR ESTO
 
 @app.get("/")
 def read_root():
