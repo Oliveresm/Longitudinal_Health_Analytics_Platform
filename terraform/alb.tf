@@ -1,5 +1,4 @@
 # --- 1. El Balanceador de Carga (ALB) ---
-# Mantenemos el mismo recurso para no cambiar la DNS
 resource "aws_lb" "main_alb" {
   name               = "healthtrends-alb"
   internal           = false 
@@ -13,13 +12,12 @@ resource "aws_lb" "main_alb" {
   }
 }
 
-# --- 2. Grupo de Seguridad del ALB (ACTUALIZADO CON SEGURIDAD) ---
+# --- 2. Grupo de Seguridad del ALB ---
 resource "aws_security_group" "alb_sg" {
   name        = "healthtrends-alb-sg"
   description = "Security Group del ALB con Whitelist de IPs"
   vpc_id      = aws_vpc.main.id
 
-  # ✅ CAMBIO CLAVE DE SEGURIDAD:
   # Solo permite tráfico HTTP (80) desde las IPs definidas en variables.tf
   ingress {
     from_port   = 80
@@ -28,7 +26,7 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = var.allowed_ips 
   }
 
-  # Salida: Permitir todo (para hablar con los contenedores ECS)
+  # Salida: Permitir todo
   egress {
     from_port   = 0
     to_port     = 0
@@ -42,8 +40,6 @@ resource "aws_security_group" "alb_sg" {
 }
 
 # --- 3A. Target Group para el BACKEND (API) ---
-# Este es el que ya tenías, lo renombramos a 'backend_tg' para claridad
-# pero mantenemos la lógica de health check de la API.
 resource "aws_lb_target_group" "backend_tg" {
   name        = "healthtrends-backend-tg"
   port        = 80
@@ -52,7 +48,7 @@ resource "aws_lb_target_group" "backend_tg" {
   target_type = "ip" 
 
   health_check {
-    path = "/" # Ruta raíz de FastAPI
+    path                = "/" # Ruta raíz de FastAPI
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
@@ -61,7 +57,6 @@ resource "aws_lb_target_group" "backend_tg" {
 }
 
 # --- 3B. Target Group para el FRONTEND (React) ---
-# NUEVO: Este TG apuntará al contenedor de Nginx/React
 resource "aws_lb_target_group" "frontend_tg" {
   name        = "healthtrends-frontend-tg"
   port        = 80
@@ -70,7 +65,7 @@ resource "aws_lb_target_group" "frontend_tg" {
   target_type = "ip" 
 
   health_check {
-    path                = "/" # Nginx sirve index.html en raíz
+    path                = "/" # Nginx sirve index.html
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
@@ -78,25 +73,24 @@ resource "aws_lb_target_group" "frontend_tg" {
   }
 }
 
-# --- 4. Listener Principal (Regla por Defecto) ---
+# --- 4. Listener Principal (Regla por Defecto: Frontend) ---
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main_alb.arn
   port              = "80"
   protocol          = "HTTP"
 
-  # ✅ POR DEFECTO: Mandar al FRONTEND
-  # Si alguien entra a la raíz (healthtrends.com/), va a React.
+  # Por defecto, si no coincide con API, manda al Frontend
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.frontend_tg.arn
   }
 }
 
-# --- 5. Reglas de Ruteo (Path-Based Routing) ---
-# ✅ REGLA: Si la URL empieza con rutas de API, mandar al BACKEND
-resource "aws_lb_listener_rule" "api_routing" {
+# --- 5A. Reglas de Ruteo API (Parte 1: Docs y Admin) ---
+# Dividimos las reglas porque AWS solo permite 5 condiciones por regla
+resource "aws_lb_listener_rule" "api_routing_part_1" {
   listener_arn = aws_lb_listener.http.arn
-  priority     = 100 # Prioridad alta
+  priority     = 100 
 
   action {
     type             = "forward"
@@ -105,15 +99,33 @@ resource "aws_lb_listener_rule" "api_routing" {
 
   condition {
     path_pattern {
-      # Lista de rutas que pertenecen exclusivamente a FastAPI
       values = [
-        "/docs*",       # Swagger UI
-        "/openapi.json",# Swagger JSON
-        "/admin/*",     # Rutas de admin
-        "/catalog/*",   # Rutas de catálogo
-        "/patients/*",  # Rutas de pacientes
-        "/trends/*",    # Rutas de tendencias
-        "/lab/*"        # Rutas de laboratorio
+        "/docs*",       
+        "/openapi.json",
+        "/admin/*",     
+        "/catalog/*"
+      ]
+    }
+  }
+}
+
+# --- 5B. Reglas de Ruteo API (Parte 2: Negocio) ---
+# El resto de las rutas de la API van aquí
+resource "aws_lb_listener_rule" "api_routing_part_2" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 101 
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_tg.arn
+  }
+
+  condition {
+    path_pattern {
+      values = [
+        "/patients/*",  
+        "/trends/*",    
+        "/lab/*"        
       ]
     }
   }
