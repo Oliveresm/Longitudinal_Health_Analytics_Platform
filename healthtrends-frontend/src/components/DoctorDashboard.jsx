@@ -24,6 +24,9 @@ export default function DoctorDashboard() {
     const [monthlyData, setMonthlyData] = useState([]);
     const [showMonthly, setShowMonthly] = useState(false); 
 
+    // ✅ 1. NUEVO ESTADO: Alerta Predictiva
+    const [riskAlert, setRiskAlert] = useState(null); 
+
     // 1. Cargar lista de exámenes del paciente
     useEffect(() => {
         if (!selectedPatientId) { setAvailableTests([]); return; }
@@ -33,7 +36,14 @@ export default function DoctorDashboard() {
                 const token = session.tokens.idToken.toString();
                 const res = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/available_tests`, { headers: { 'Authorization': token } });
                 setAvailableTests(res.data);
-                if (res.data.length > 0) setSelectedTest(res.data[0].test_code);
+                
+                // Lógica para mantener o seleccionar el test por defecto
+                if (res.data.length > 0) {
+                    const currentTestStillAvailable = res.data.find(t => t.test_code === selectedTest);
+                    if (!selectedTest || !currentTestStillAvailable) {
+                        setSelectedTest(res.data[0].test_code);
+                    }
+                }
             } catch (err) { console.error(err); }
         };
         loadTests();
@@ -41,7 +51,12 @@ export default function DoctorDashboard() {
 
     // 2. Carga Inteligente de Datos (Smart Fetching)
     useEffect(() => {
-        if (!selectedPatientId || !selectedTest) return;
+        if (!selectedPatientId || !selectedTest) {
+            setHistory([]);
+            setMonthlyData([]);
+            setRiskAlert(null); // Limpiar alerta
+            return;
+        }
         
         const loadSmartData = async () => {
             try {
@@ -73,10 +88,63 @@ export default function DoctorDashboard() {
                     setMonthlyData([]); 
                 }
 
+                // ✅ D. NUEVO: Cargar Análisis de Riesgo
+                // Se ejecuta siempre para mostrar la alerta si es necesario
+                try {
+                    const resRisk = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/risk-analysis/${selectedTest}`, {
+                        headers: { 'Authorization': token }
+                    });
+                    setRiskAlert(resRisk.data);
+                } catch (error) {
+                    console.error("Error cargando riesgo:", error);
+                    setRiskAlert(null);
+                }
+
             } catch (err) { console.error(err); }
         };
         loadSmartData();
     }, [selectedPatientId, selectedTest, startDate, endDate]);
+
+    // ✅ 2. Componente interno para mostrar la Alerta
+    const AlertDisplay = () => {
+        if (!riskAlert || riskAlert.alert_level === 'none' || riskAlert.trend === 'insufficient_data') return null;
+
+        const level = riskAlert.alert_level;
+        const style = {
+            padding: '15px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            marginBottom: '20px',
+            borderLeft: '5px solid',
+            // Estilos base
+        };
+
+        let icon = '';
+        if (level === 'CRITICAL') {
+            style.backgroundColor = '#f8d7da'; // Rojo claro
+            style.color = '#721c24'; // Rojo oscuro
+            style.borderColor = '#f5c6cb'; 
+            icon = '🚨 URGENTE: ';
+        } else if (level === 'WARNING') {
+            style.backgroundColor = '#fff3cd'; // Amarillo claro
+            style.color = '#856404'; // Amarillo oscuro
+            style.borderColor = '#ffeeba'; 
+            icon = '🟡 ALERTA DE TENDENCIA: ';
+        } else if (level === 'INFO') {
+            style.backgroundColor = '#d1ecf1'; // Azul claro
+            style.color = '#0c5460'; // Azul oscuro
+            style.borderColor = '#bee5eb'; 
+            icon = 'ℹ️ ';
+        }
+
+        return (
+            <div style={style}>
+                {icon}
+                {riskAlert.alert_message}
+                {riskAlert.change_percent && riskAlert.trend !== 'stable' && ` (Cambio promedio: ${riskAlert.change_percent}%)`}
+            </div>
+        );
+    };
 
     return (
         <div style={{ padding: '20px', maxWidth:'1200px', margin:'0 auto', fontFamily:'sans-serif' }}>
@@ -113,6 +181,9 @@ export default function DoctorDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* ✅ ZONA DE ALERTA: Aquí se muestra la caja roja/amarilla */}
+            <AlertDisplay />
 
             {/* GRÁFICA 1: DETALLE DIARIO (Siempre visible) */}
             {history.length > 0 ? (

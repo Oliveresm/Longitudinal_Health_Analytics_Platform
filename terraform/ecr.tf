@@ -27,3 +27,9 @@ resource "aws_ecr_repository" "portal_repo" {
 output "ecr_portal_repo_url" {
   value = aws_ecr_repository.portal_repo.repository_url
 }
+
+
+resource "aws_ecr_repository" "frontend_repo" {
+  name = "healthtrends-frontend"
+  force_delete = true
+}

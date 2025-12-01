@@ -13,3 +13,10 @@ variable "environment" {
   # Puedes establecer un valor por defecto si no quieres pasarlo por línea de comandos
   default     = "dev" 
 }
+
+# Agrega esto a variables.tf
+variable "allowed_ips" {
+  description = "Lista de IPs permitidas para acceder al Frontend (formato CIDR)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"] # CAMBIA ESTO por tu IP pública, ej: ["201.123.45.67/32"]
+}

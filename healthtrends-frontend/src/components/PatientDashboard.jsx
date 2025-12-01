@@ -18,13 +18,15 @@ export default function PatientDashboard({ user }) {
     const [selectedTest, setSelectedTest] = useState("");
     const [history, setHistory] = useState([]);
 
-    // ✅ Nuevos Estados: Fechas y Vista Mensual
-    // Por defecto: Últimos 12 meses
+    // Fechas y Vista Mensual
     const [startDate, setStartDate] = useState(new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0]); 
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]); 
 
     const [monthlyData, setMonthlyData] = useState([]);
     const [showMonthly, setShowMonthly] = useState(false);
+
+    // ✅ NUEVO ESTADO: Alerta Predictiva
+    const [riskAlert, setRiskAlert] = useState(null);
 
     // 1. Cargar lista de exámenes disponibles
     useEffect(() => {
@@ -44,7 +46,12 @@ export default function PatientDashboard({ user }) {
 
     // 2. Carga Inteligente de Datos (Smart Fetching)
     useEffect(() => {
-        if (!selectedTest) return;
+        if (!selectedTest) {
+            setHistory([]);
+            setMonthlyData([]);
+            setRiskAlert(null); // Limpiar alerta
+            return;
+        }
         
         const loadData = async () => {
             try {
@@ -76,10 +83,71 @@ export default function PatientDashboard({ user }) {
                     setMonthlyData([]);
                 }
 
+                // ✅ D. NUEVO: Cargar Análisis de Riesgo
+                try {
+                    const resRisk = await axios.get(`${READ_URL}/trends/patient/${patientId}/risk-analysis/${selectedTest}`, {
+                        headers: { 'Authorization': token }
+                    });
+                    setRiskAlert(resRisk.data);
+                } catch (error) {
+                    console.error("Error cargando riesgo:", error);
+                    setRiskAlert(null);
+                }
+
             } catch (e) { console.error(e); }
         };
         loadData();
     }, [selectedTest, patientId, startDate, endDate]);
+
+    // ✅ COMPONENTE INTERNO: Mostrar Alerta
+    const AlertDisplay = () => {
+        if (!riskAlert || riskAlert.alert_level === 'none' || riskAlert.trend === 'insufficient_data') return null;
+
+        const level = riskAlert.alert_level;
+        // Estilos adaptados para el paciente (más amigables)
+        const style = {
+            padding: '15px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            marginBottom: '20px',
+            borderLeft: '5px solid',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+        };
+
+        let icon = '';
+        if (level === 'CRITICAL') {
+            style.backgroundColor = '#fff5f5'; // Rojo muy suave
+            style.color = '#c53030'; // Rojo oscuro
+            style.borderColor = '#fc8181'; 
+            icon = '🚨 Atención Requerida: ';
+        } else if (level === 'WARNING') {
+            style.backgroundColor = '#fffaf0'; // Naranja suave
+            style.color = '#c05621'; // Naranja oscuro
+            style.borderColor = '#fbd38d'; 
+            icon = '⚠️ Aviso de Salud: ';
+        } else if (level === 'INFO') {
+            style.backgroundColor = '#ebf8ff'; // Azul suave
+            style.color = '#2b6cb0'; // Azul oscuro
+            style.borderColor = '#63b3ed'; 
+            icon = 'ℹ️ Nota: ';
+        }
+
+        return (
+            <div style={style}>
+                <span>{icon}</span>
+                <span>
+                    {riskAlert.alert_message}
+                    {riskAlert.change_percent && riskAlert.trend !== 'stable' && 
+                        <span style={{fontWeight:'normal', marginLeft:'5px'}}>
+                            (Tu promedio cambió un {riskAlert.change_percent}%)
+                        </span>
+                    }
+                </span>
+            </div>
+        );
+    };
 
     return (
         <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
@@ -105,7 +173,6 @@ export default function PatientDashboard({ user }) {
                             >
                                 {availableTests.map(t => (
                                     <option key={t.test_code} value={t.test_code}>
-                                        {/* ✅ CORRECCIÓN: Mostramos Nombre + (Unidad) */}
                                         {t.test_name} {t.unit ? `(${t.unit})` : ''}
                                     </option>
                                 ))}
@@ -125,6 +192,9 @@ export default function PatientDashboard({ user }) {
                         </div>
                     </div>
 
+                    {/* ✅ ZONA DE ALERTA DEL PACIENTE */}
+                    <AlertDisplay />
+
                     {/* GRÁFICA 1: DIARIA */}
                     {history.length > 0 ? (
                         <div style={{ marginBottom: '40px' }}>
@@ -135,7 +205,7 @@ export default function PatientDashboard({ user }) {
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="test_date" tickFormatter={(d) => new Date(d).toLocaleDateString()} />
                                         <YAxis />
-                                        <Tooltip labelFormatter={(l) => new Date(l).toLocaleString()} />
+                                        <Tooltip labelFormatter={(l) => new Date(l).toLocaleDateString()} />
                                         <Legend />
                                         <Line type="monotone" dataKey="value" stroke="#28a745" name="Mi Resultado" strokeWidth={3} dot={{r: 4}} />
                                         <Line type="monotone" dataKey="moving_avg_3_points" stroke="#ffc107" name="Tendencia" dot={false} strokeDasharray="5 5" />
@@ -154,6 +224,9 @@ export default function PatientDashboard({ user }) {
                                     Vista Largo Plazo
                                 </span>
                             </div>
+                            <p style={{fontSize: '0.9em', color: '#666'}}>
+                                Mostrando promedios mensuales porque el rango seleccionado es amplio.
+                            </p>
                             <div style={{ width: '100%', height: 350, background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
                                 <ResponsiveContainer>
                                     <ComposedChart data={monthlyData}>
