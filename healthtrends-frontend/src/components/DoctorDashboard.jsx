@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+// Importamos todos los componentes gráficos necesarios
+import { 
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    ComposedChart, Bar 
+} from 'recharts';
 import PatientSearchDoctor from './PatientSearchDoctor'; 
 
-// URL del ALB
 const READ_URL = 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
 
 export default function DoctorDashboard() {
@@ -13,204 +16,151 @@ export default function DoctorDashboard() {
     const [selectedTest, setSelectedTest] = useState(""); 
     const [history, setHistory] = useState([]);
     
-    // ✅ 1. Nuevos estados para fechas
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    // Fechas por defecto: Últimos 12 meses
+    const [startDate, setStartDate] = useState(new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0]); 
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]); 
 
-    // Cargar exámenes cuando cambia el paciente
+    // Estados para la Vista Materializada
+    const [monthlyData, setMonthlyData] = useState([]);
+    const [showMonthly, setShowMonthly] = useState(false); 
+
+    // 1. Cargar lista de exámenes del paciente
     useEffect(() => {
-        if (!selectedPatientId) {
-            setAvailableTests([]);
-            setHistory([]);
-            setSelectedTest("");
-            return;
-        }
-
-        const loadPatientTests = async () => {
+        if (!selectedPatientId) { setAvailableTests([]); return; }
+        const loadTests = async () => {
             try {
                 const session = await fetchAuthSession();
                 const token = session.tokens.idToken.toString();
-                
-                const res = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/available_tests`, {
-                    headers: { 'Authorization': token }
-                });
-                
+                const res = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/available_tests`, { headers: { 'Authorization': token } });
                 setAvailableTests(res.data);
-                
-                if (res.data.length > 0) {
-                    setSelectedTest(res.data[0].test_code);
-                } else {
-                    setSelectedTest("");
-                    setHistory([]);
-                }
+                if (res.data.length > 0) setSelectedTest(res.data[0].test_code);
             } catch (err) { console.error(err); }
         };
-        loadPatientTests();
+        loadTests();
     }, [selectedPatientId]);
 
-    // ✅ 2. Cargar gráfica (Ahora depende también de startDate y endDate)
+    // 2. Carga Inteligente de Datos (Smart Fetching)
     useEffect(() => {
         if (!selectedPatientId || !selectedTest) return;
         
-        const loadHistory = async () => {
+        const loadSmartData = async () => {
             try {
                 const session = await fetchAuthSession();
                 const token = session.tokens.idToken.toString();
 
-                // Preparamos los parámetros
-                const params = {};
-                if (startDate) params.start_date = startDate;
-                if (endDate) params.end_date = endDate;
+                // A. Calcular rango de días seleccionado
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
-                const res = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/trends/${selectedTest}`, {
+                // B. Siempre cargamos el detalle diario (Limitado por fechas)
+                const resHistory = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/trends/${selectedTest}`, {
                     headers: { 'Authorization': token },
-                    params: params // Axios se encarga de armar ?start_date=...
+                    params: { start_date: startDate, end_date: endDate }
                 });
-                
-                setHistory(res.data.history || []);
+                setHistory(resHistory.data.history || []);
+
+                // C. LÓGICA CONDICIONAL: Solo cargar vista mensual si es > 90 días
+                if (diffDays > 90) {
+                    setShowMonthly(true);
+                    const resMonthly = await axios.get(`${READ_URL}/trends/patient/${selectedPatientId}/monthly-trends/${selectedTest}`, {
+                        headers: { 'Authorization': token }
+                    });
+                    setMonthlyData(resMonthly.data.monthly_data || []);
+                } else {
+                    setShowMonthly(false); 
+                    setMonthlyData([]); 
+                }
+
             } catch (err) { console.error(err); }
         };
-        loadHistory();
-    }, [selectedPatientId, selectedTest, startDate, endDate]); // Se actualiza si cambian fechas
+        loadSmartData();
+    }, [selectedPatientId, selectedTest, startDate, endDate]);
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h2>👨‍⚕️ Portal Médico (Integrado)</h2>
+        <div style={{ padding: '20px', maxWidth:'1200px', margin:'0 auto', fontFamily:'sans-serif' }}>
+            <h2>👨‍⚕️ Portal Médico (Smart Analytics)</h2>
             
-            {/* Barra de Herramientas */}
-            <div style={{ 
-                marginBottom: '20px', 
-                display: 'flex', 
-                flexWrap: 'wrap', 
-                gap: '20px', 
-                background: '#f0f8ff', 
-                padding: '20px', 
-                borderRadius: '8px', 
-                alignItems: 'flex-start' 
-            }}>
-                
-                {/* 1. Seleccionar Paciente */}
+            {/* BARRA SUPERIOR DE FILTROS */}
+            <div style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '20px', background: '#f0f8ff', padding: '20px', borderRadius: '8px', alignItems: 'flex-end' }}>
                 <div style={{ flex: 1, minWidth: '250px' }}>
-                    <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
-                        1. Seleccionar Paciente:
-                    </label>
+                    <label style={{display:'block', fontWeight:'bold', marginBottom:'5px'}}>Paciente:</label>
                     <PatientSearchDoctor onSelect={setSelectedPatientId} selectedId={selectedPatientId} />
-                    {selectedPatientId && <small style={{color:'#28a745', marginTop:'4px', display:'block'}}>✓ Paciente seleccionado</small>}
                 </div>
-
-                {/* 2. Seleccionar Examen */}
                 <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
-                        2. Ver Resultados de:
-                    </label>
-                    {availableTests.length > 0 ? (
-                        <select 
-                            onChange={(e) => setSelectedTest(e.target.value)} 
-                            value={selectedTest} 
-                            style={{
-                                width: '100%', 
-                                padding: '0 12px', 
-                                border: '1px solid #ced4da', 
-                                borderRadius: '4px',
-                                height: '38px',
-                                fontSize: '1em',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                backgroundColor: 'white'
-                            }}
-                        >
-                            {availableTests.map(t => (
-                                <option key={t.test_code} value={t.test_code}>{t.test_name}</option>
-                            ))}
-                        </select>
-                    ) : (
-                        <div style={{
-                            padding: '0 12px', 
-                            background: '#e9ecef', 
-                            borderRadius: '4px', 
-                            color: '#6c757d', 
-                            fontStyle: 'italic',
-                            height: '38px', 
-                            display: 'flex',
-                            alignItems: 'center',
-                            border: '1px solid #e9ecef'
-                        }}>
-                            {selectedPatientId ? "Sin exámenes" : "Esperando..."}
-                        </div>
-                    )}
+                    <label style={{display:'block', fontWeight:'bold', marginBottom:'5px'}}>Examen:</label>
+                    <select 
+                        onChange={(e) => setSelectedTest(e.target.value)} 
+                        value={selectedTest} 
+                        style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc'}}
+                    >
+                        {availableTests.map(t => (
+                            <option key={t.test_code} value={t.test_code}>
+                                {t.test_name} {t.unit ? `(${t.unit})` : ''}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-
-                {/* ✅ 3. Filtros de Fecha */}
                 <div style={{ flex: 1, minWidth: '250px', display: 'flex', gap: '10px' }}>
                     <div style={{flex: 1}}>
-                        <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
-                            Desde:
-                        </label>
-                        <input 
-                            type="date" 
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            style={{
-                                width: '100%',
-                                height: '38px',
-                                padding: '0 10px',
-                                border: '1px solid #ced4da',
-                                borderRadius: '4px',
-                                outline: 'none'
-                            }}
-                        />
+                        <label style={{display:'block', fontWeight:'bold', marginBottom:'5px'}}>Desde:</label>
+                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc'}} />
                     </div>
                     <div style={{flex: 1}}>
-                        <label style={{display:'block', fontWeight:'bold', marginBottom: '8px', color: '#333', fontSize:'0.9em'}}>
-                            Hasta:
-                        </label>
-                        <input 
-                            type="date" 
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            style={{
-                                width: '100%',
-                                height: '38px',
-                                padding: '0 10px',
-                                border: '1px solid #ced4da',
-                                borderRadius: '4px',
-                                outline: 'none'
-                            }}
-                        />
+                        <label style={{display:'block', fontWeight:'bold', marginBottom:'5px'}}>Hasta:</label>
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc'}} />
                     </div>
                 </div>
             </div>
 
-            {/* Gráfica */}
+            {/* GRÁFICA 1: DETALLE DIARIO (Siempre visible) */}
             {history.length > 0 ? (
-                <div style={{ width: '100%', height: 400, background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                    <ResponsiveContainer>
-                        <LineChart data={history}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                            <XAxis 
-                                dataKey="test_date" 
-                                stroke="#666" 
-                                tick={{fontSize: 12}} 
-                                tickFormatter={(date) => new Date(date).toLocaleDateString()} // Formato de fecha legible
-                            />
-                            <YAxis stroke="#666" tick={{fontSize: 12}} />
-                            <Tooltip 
-                                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'}}
-                                labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                            />
-                            <Legend wrapperStyle={{paddingTop: '20px'}} />
-                            <Line type="monotone" dataKey="value" stroke="#007acc" name="Valor Medido" strokeWidth={3} activeDot={{r:6}} />
-                            <Line type="monotone" dataKey="moving_avg_3_points" stroke="#ff7300" name="Promedio Móvil (Tendencia)" strokeDasharray="5 5" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
+                <div style={{ marginBottom: '40px' }}>
+                    <h3 style={{color: '#007acc'}}>📈 Detalle Diario ({history.length} registros)</h3>
+                    <div style={{ width: '100%', height: 350, background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <ResponsiveContainer>
+                            <LineChart data={history}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="test_date" tickFormatter={(d) => new Date(d).toLocaleDateString()} />
+                                <YAxis />
+                                <Tooltip labelFormatter={(l) => new Date(l).toLocaleString()} />
+                                <Legend />
+                                <Line type="monotone" dataKey="value" stroke="#007acc" name="Valor" dot={false} strokeWidth={2} />
+                                <Line type="monotone" dataKey="moving_avg_3_points" stroke="#ff7300" name="Tendencia" dot={false} strokeDasharray="5 5" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-            ) : selectedPatientId && selectedTest ? (
-                <div style={{padding: '40px', textAlign: 'center', color: '#666', background: '#f9f9f9', borderRadius: '8px'}}>
-                    {startDate || endDate 
-                        ? "No hay datos en el rango de fechas seleccionado." 
-                        : "No hay datos históricos suficientes para graficar este examen."}
+            ) : <div style={{padding:'20px', textAlign:'center', color:'#666'}}>No hay datos para el rango seleccionado.</div>}
+
+            {/* GRÁFICA 2: TENDENCIA MENSUAL (Solo si > 90 días) */}
+            {showMonthly && monthlyData.length > 0 && (
+                <div style={{ marginTop: '20px', borderTop: '2px dashed #eee', paddingTop: '20px' }}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                        <h3 style={{color: '#28a745'}}>📊 Resumen Mensual (Largo Plazo)</h3>
+                        <span style={{background: '#d4edda', color: '#155724', padding: '5px 10px', borderRadius: '20px', fontSize: '0.8em'}}>
+                            🚀 Optimizado con Vista Materializada
+                        </span>
+                    </div>
+                    <p style={{fontSize: '0.9em', color: '#666'}}>
+                        Mostrando promedios mensuales porque el rango seleccionado es amplio.
+                    </p>
+                    <div style={{ width: '100%', height: 350, background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <ResponsiveContainer>
+                            <ComposedChart data={monthlyData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="date" tickFormatter={(d) => new Date(d).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' })} />
+                                <YAxis />
+                                <Tooltip labelFormatter={(l) => new Date(l).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })} />
+                                <Legend />
+                                <Bar dataKey="max" fill="#e9ecef" name="Max" barSize={30} />
+                                <Line type="monotone" dataKey="average" stroke="#28a745" strokeWidth={3} name="Promedio" dot={{r:4}} />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-            ) : null}
+            )}
         </div>
     );
-}   
+}

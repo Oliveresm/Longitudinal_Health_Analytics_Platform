@@ -162,3 +162,32 @@ resource "aws_iam_role_policy" "lambda_trigger_policy" {
     ]
   })
 }
+
+
+# Define la política de permiso de envío de correo
+data "aws_iam_policy_document" "ses_send_access_policy_document" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = [
+      # Aquí usamos el ARN del correo que definimos en ses.tf
+      "${aws_ses_email_identity.sender_email_identity.arn}"
+    ]
+  }
+}
+
+# 1. Crea la política si es que no existe (o usa una existente)
+resource "aws_iam_policy" "ses_send_policy" {
+  name   = "FastAPISESSendPolicy-${var.environment}" # Ejemplo
+  policy = data.aws_iam_policy_document.ses_send_access_policy_document.json
+}
+
+# 2. Adjunta la nueva política al rol de ECS/Fargate de tu aplicación
+# Asegúrate de reemplazar 'aws_iam_role.ecs_task_role' con el nombre de tu recurso de Rol
+resource "aws_iam_role_policy_attachment" "ses_attach_to_app_role" {
+  role       = aws_iam_role.ecs_task_role.name 
+  policy_arn = aws_iam_policy.ses_send_policy.arn
+}

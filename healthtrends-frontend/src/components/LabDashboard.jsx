@@ -15,6 +15,9 @@ export default function LabDashboard() {
 
   // Estado para Carga Masiva (TEXTO)
   const [jsonText, setJsonText] = useState("");
+  
+  // Estado para barra de progreso
+  const [progress, setProgress] = useState(0);
 
   // Estados Carga Manual
   const [form, setForm] = useState({ 
@@ -57,11 +60,12 @@ export default function LabDashboard() {
   useEffect(() => { loadCatalog(); }, []);
 
   // ---------------------------------------------------------
-  // A. VALIDACIÓN Y CARGA MASIVA (TEXTBOX)
+  // A. VALIDACIÓN Y CARGA MASIVA (MICRO-LOTES)
   // ---------------------------------------------------------
   const validateAndUpload = async () => {
     setValidationErrors([]);
     setStatus("");
+    setProgress(0);
 
     let parsedData;
     try {
@@ -95,30 +99,49 @@ export default function LabDashboard() {
     });
 
     if (errors.length > 0) {
-        setValidationErrors(errors);
-        setStatus("⚠️ Corrige los errores antes de enviar.");
+        setValidationErrors(errors.slice(0, 10));
+        setStatus(`⚠️ Se encontraron ${errors.length} errores.`);
         return;
     }
 
     setLoading(true);
-    setStatus("⏳ Enviando datos válidos...");
     
+    // Batching agresivo para evitar Timeouts
+    const BATCH_SIZE = 50; 
+    const totalBatches = Math.ceil(parsedData.length / BATCH_SIZE);
+    let successCount = 0;
+
     try {
         const session = await fetchAuthSession();
         const token = session.tokens.idToken.toString();
 
-        const res = await axios.post(`${READ_URL}/lab/upload-results`, parsedData, {
-            headers: { 
-                'Authorization': token,
-                'Content-Type': 'application/json'
-            }
-        });
+        for (let i = 0; i < totalBatches; i++) {
+            const start = i * BATCH_SIZE;
+            const end = start + BATCH_SIZE;
+            const batch = parsedData.slice(start, end);
 
-        setStatus(res.data.message);
+            const currentPercent = Math.round(((i) / totalBatches) * 100);
+            setStatus(`⏳ Enviando lote ${i + 1}/${totalBatches}... (${currentPercent}%)`);
+            setProgress(currentPercent);
+            
+            await axios.post(`${READ_URL}/lab/upload-results`, batch, {
+                headers: { 
+                    'Authorization': token,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            successCount += batch.length;
+            await new Promise(resolve => setTimeout(resolve, 100)); // Pausa técnica
+        }
+
+        setProgress(100);
+        setStatus(`✅ ¡Éxito Total! Se cargaron ${successCount} registros.`);
         setJsonText(""); 
     } catch (error) {
         console.error(error);
-        setStatus("❌ Error del Servidor: " + (error.response?.data?.detail || error.message));
+        setStatus("❌ Error en la subida: " + (error.response?.data?.detail || error.message));
+        if (successCount > 0) alert(`⚠️ Hubo un error, pero se lograron guardar los primeros ${successCount} registros.`);
     } finally {
         setLoading(false);
     }
@@ -199,7 +222,7 @@ export default function LabDashboard() {
       {/* 1. SECCIÓN DE CARGA MASIVA */}
       <div style={{ border: '2px solid #007acc', padding: '20px', borderRadius: '8px', marginBottom: '20px', background: '#f9fcff' }}>
         <h3 style={{marginTop:0, color:'#0056b3'}}>📝 Carga Masiva (Pegar JSON)</h3>
-        <p style={{fontSize:'0.9em', color:'#555'}}>Pega aquí tu lista de resultados históricos.</p>
+        <p style={{fontSize:'0.9em', color:'#555'}}>Sistema optimizado para grandes volúmenes de datos.</p>
         
         <textarea
             rows="5"
@@ -211,15 +234,22 @@ export default function LabDashboard() {
 
         {validationErrors.length > 0 && (
             <div style={{background: '#fff0f0', borderLeft: '4px solid red', padding: '10px', marginBottom: '10px'}}>
-                <strong style={{color: 'red'}}>Errores encontrados:</strong>
+                <strong style={{color: 'red'}}>Errores encontrados (primeros 10):</strong>
                 <ul style={{margin: '5px 0', paddingLeft: '20px', color: '#d32f2f', fontSize: '0.9em'}}>
                     {validationErrors.map((err, idx) => <li key={idx}>{err}</li>)}
                 </ul>
             </div>
         )}
 
+        {/* BARRA DE PROGRESO */}
+        {loading && (
+            <div style={{width: '100%', background: '#e0e0e0', borderRadius: '4px', height: '20px', marginBottom: '10px', overflow:'hidden'}}>
+                <div style={{width: `${progress}%`, background: '#28a745', height: '100%', transition: 'width 0.3s ease-in-out'}}></div>
+            </div>
+        )}
+
         <button onClick={validateAndUpload} disabled={!jsonText || loading} style={{padding: '10px 20px', background: validationErrors.length > 0 ? '#dc3545' : '#007acc', color: 'white', border:'none', borderRadius:'4px', cursor: 'pointer', fontWeight:'bold'}}>
-            {loading ? "Validando..." : "Validar y Cargar JSON"}
+            {loading ? `Subiendo... ${progress}%` : "Validar y Cargar JSON"}
         </button>
       </div>
 
@@ -234,8 +264,17 @@ export default function LabDashboard() {
           <div style={{display: 'flex', gap: '10px', alignItems:'center'}}>
               <div style={{flex:1}}>
                 <label style={{display:'block', fontSize:'0.9em', fontWeight:'bold'}}>Examen:</label>
-                <select style={{width:'100%', padding: '8px', borderRadius:'4px', border:'1px solid #ccc'}} value={form.test_code} onChange={e => setForm({...form, test_code: e.target.value})}>
-                    {testTypes.map(t => <option key={t.code} value={t.code}>{t.name} ({t.unit})</option>)}
+                <select 
+                    style={{width:'100%', padding: '8px', borderRadius:'4px', border:'1px solid #ccc'}} 
+                    value={form.test_code} 
+                    onChange={e => setForm({...form, test_code: e.target.value})}
+                >
+                    {testTypes.map(t => (
+                        <option key={t.code} value={t.code}>
+                            {/* ✅ CORRECCIÓN: Nombre + Unidad */}
+                            {t.name} {t.unit ? `(${t.unit})` : ''}
+                        </option>
+                    ))}
                 </select>
               </div>
           </div>
@@ -270,8 +309,17 @@ export default function LabDashboard() {
           <div style={{display: 'flex', gap: '10px', flexWrap:'wrap'}}>
               <div style={{flex:1, minWidth:'200px'}}>
                 <label style={{display:'block', fontSize:'0.9em', fontWeight:'bold'}}>Examen a borrar:</label>
-                <select style={{width:'100%', padding: '8px', borderRadius:'4px', border:'1px solid #ccc'}} value={deleteForm.test_code} onChange={e => setDeleteForm({...deleteForm, test_code: e.target.value})}>
-                    {testTypes.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                <select 
+                    style={{width:'100%', padding: '8px', borderRadius:'4px', border:'1px solid #ccc'}} 
+                    value={deleteForm.test_code} 
+                    onChange={e => setDeleteForm({...deleteForm, test_code: e.target.value})}
+                >
+                    {testTypes.map(t => (
+                        <option key={t.code} value={t.code}>
+                            {/* ✅ CORRECCIÓN: Nombre + Unidad */}
+                            {t.name} {t.unit ? `(${t.unit})` : ''}
+                        </option>
+                    ))}
                 </select>
               </div>
               <div style={{flex:1, minWidth:'140px'}}>
