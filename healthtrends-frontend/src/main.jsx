@@ -4,16 +4,16 @@ import App from './App.jsx'
 import './index.css'
 import { Amplify } from 'aws-amplify';
 
+// 👇 CONFIGURACIÓN FORMATO V5 (Compatibilidad Gen 1)
 Amplify.configure({
   Auth: {
-    Cognito: {
-      // 👇 PEGA TUS VALORES REALES AQUÍ DIRECTAMENTE (con comillas)
-      userPoolId: "us-east-1_wi38Rkw09",
-      userPoolClientId: "s2dj8b32cv3fh7nphllpupame",
-      loginWith: {
-        email: true,
-      },
-    }
+    region: 'us-east-1',
+    // Pega aquí tus valores reales con comillas
+    userPoolId: "us-east-1_wi38Rkw09",
+    userPoolWebClientId: "s2dj8b32cv3fh7nphllpupame", // Nota: userPoolWebClientId
+    
+    // Opcional: configuración de cookies/storage si fuera necesaria
+    // cookieStorage: { ... }
   }
 });
 
