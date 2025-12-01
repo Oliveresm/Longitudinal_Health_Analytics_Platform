@@ -4,11 +4,12 @@ name: 'Infrastructure Pipeline and Code Deploy'
 on:
   push:
     branches: [ "main" ]
-    # Se dispara por cambios en infraestructura (terraform/**) O en el código de la API (services/app/**)
+    # Se dispara por cambios en infraestructura, backend O frontend
     paths: 
       - "terraform/**"
       - "services/app/**"
       - "services/portal/**"
+      - "healthtrends-frontend/**" # ✅ Agregamos la ruta del frontend
   pull_request:
     branches: [ "main" ]
     paths: [ "terraform/**" ]
@@ -16,20 +17,18 @@ on:
 
 jobs:
   # =========================================================
-  # ⚙️ TERRAFORM/TOFU: Despliega la infraestructura
+  # ⚙️ BUILD & INFRASTRUCTURE: Docker + OpenTofu
   # =========================================================
-  terraform:
-    name: 'OpenTofu CI/CD'
+  build-and-infra:
+    name: 'Build Images & Apply Infra'
     runs-on: ubuntu-latest
     
-    # El working-directory por defecto es la raíz del repositorio, lo cambiamos solo para Tofu.
-
     steps:
       # 1. Descargar código
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Credenciales AWS (Necesarias para Tofu y Docker)
+      # 2. Credenciales AWS
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,74 +36,89 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           
-      # =========================================================
-      # 🐳 PASOS DE DOCKER: Build & Push de la imagen
-      # Se ejecutan desde la raíz (github.workspace)
-      # =========================================================
-      
+      # 3. Login en ECR
       - name: Log into Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
         with:
-          # Usamos 'private' o 'public' según tu registro, si es private se puede omitir.
           registry-type: private 
           region: us-east-1
 
-      - name: Build, Tag, and Push Docker Image
+      # =========================================================
+      # 🐳 PASO A: Build & Push del PORTAL (Backend)
+      # =========================================================
+      - name: Build and Push Portal (Backend)
         run: |
-          # NOTA: Usamos el ID de cuenta duro 809829871731 de tu contexto
+          # Variables
           ECR_REGISTRY="809829871731.dkr.ecr.us-east-1.amazonaws.com"
           IMAGE_NAME="healthtrends/portal:latest"
           FULL_IMAGE_NAME="$ECR_REGISTRY/$IMAGE_NAME"
 
-          # 1. Construir la imagen (usando el contexto 'services/')
-          # La ruta 'services/' permite a Docker acceder a 'app/' y 'portal/requirements.txt'
+          echo "🔨 Building Portal Image..."
           docker build \
               -t $IMAGE_NAME \
               -f services/portal/Dockerfile \
               services/
 
-          # 2. Etiquetar para ECR
+          echo "🏷️ Pushing Portal Image..."
           docker tag $IMAGE_NAME $FULL_IMAGE_NAME
-
-          # 3. Subir a ECR
           docker push $FULL_IMAGE_NAME
-        # working-directory: ${{ github.workspace }} es el default, no se necesita explicitar
 
       # =========================================================
-      # 🧱 PASOS DE OPENTOFU (INFRAESTRUCTURA)
-      # Ahora se ejecutan dentro de la carpeta 'terraform'
+      # 🐳 PASO B: Build & Push del FRONTEND (React) - ¡NUEVO!
+      # =========================================================
+      - name: Build and Push Frontend (React)
+        run: |
+          # Variables
+          ECR_REGISTRY="809829871731.dkr.ecr.us-east-1.amazonaws.com"
+          IMAGE_NAME="healthtrends-frontend:latest"
+          FULL_IMAGE_NAME="$ECR_REGISTRY/$IMAGE_NAME"
+
+          echo "🔨 Building Frontend Image..."
+          # ⚠️ IMPORTANTE: Asegúrate de que tu carpeta se llama 'healthtrends-frontend'
+          docker build -t $IMAGE_NAME healthtrends-frontend/ 
+
+          echo "🏷️ Pushing Frontend Image..."
+          docker tag $IMAGE_NAME $FULL_IMAGE_NAME
+          docker push $FULL_IMAGE_NAME
+
+      # =========================================================
+      # 🧱 PASO C: OPENTOFU (INFRAESTRUCTURA)
       # =========================================================
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: '1.7.0'
-        # Usamos working-directory para los comandos de Tofu
         
       - name: Tofu Init
         run: tofu init
+        working-directory: ./terraform
+
+      # ✅ Agregado Tofu Validate como pediste
+      - name: Tofu Validate
+        run: tofu validate
         working-directory: ./terraform
 
       - name: Tofu Plan
         run: tofu plan -no-color
         working-directory: ./terraform
 
-      # 6. Apply (Se ejecuta SOLO si estamos en la rama 'main')
+      # Apply (Solo se ejecuta en push a main)
       - name: Tofu Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: tofu apply -auto-approve
         working-directory: ./terraform
 
   # =========================================================
-  # 🔄 CODE DEPLOY: Forzar el reinicio de ECS (para código nuevo)
+  # 🔄 CODE DEPLOY: Reiniciar servicios ECS
   # =========================================================
-  deploy:
+  deploy-ecs:
     name: 'Force ECS Deployment'
-    needs: [terraform] # Solo se ejecuta si la infraestructura se aplica correctamente
+    needs: [build-and-infra] # Espera a que termine el build y la infra
     runs-on: ubuntu-latest
     environment: production
     
-    # Solo ejecutar en main después de un apply exitoso
+    # Solo ejecutar en main
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -115,11 +129,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Force ECS Service Deployment
+      - name: Force ECS Service Updates
         run: |
-          # Reinicia el servicio ECS para usar la nueva imagen que se acaba de subir
+          echo "🔄 Updating Portal Service (Backend)..."
           aws ecs update-service \
             --cluster healthtrends-cluster \
             --service healthtrends-portal-service \
+            --force-new-deployment \
+            --region us-east-1
+
+          echo "🔄 Updating Frontend Service..."
+          aws ecs update-service \
+            --cluster healthtrends-cluster \
+            --service healthtrends-frontend-service \
             --force-new-deployment \
             --region us-east-1
