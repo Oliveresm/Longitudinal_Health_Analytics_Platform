@@ -131,10 +131,4 @@ Default setup is not HIPAA compliant; additional security hardening is required.
 No built-in analytics dashboard (external BI tools must be integrated).
 API Gateway rate limit: 10,000 req/sec per region.
 
-📌 Additional Documentation
-API Reference → docs/api.md
-Cost Analysis → docs/cost_analysis.md
-Architecture Diagram → docs/architecture.png
 
-
----
