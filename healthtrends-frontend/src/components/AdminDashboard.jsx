@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
-const API_URL = import.meta.env.VITE_READ_API_URL || 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
+const API_URL = import.meta.env.VITE_READ_URL;
 
 export default function AdminDashboard() {
   // --- ESTADOS GESTIÓN DE ROLES ---

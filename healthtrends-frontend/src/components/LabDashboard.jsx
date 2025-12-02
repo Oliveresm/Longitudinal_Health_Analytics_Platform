@@ -3,9 +3,8 @@ import axios from 'axios';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import PatientSearch from './PatientSearch'; 
 
-// --- URLs ---
-const INGEST_URL = 'https://hqtxi2jp9l.execute-api.us-east-1.amazonaws.com/prod/ingest';
-const READ_URL = 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
+const INGEST_URL = import.meta.env.VITE_INGEST_URL;
+const READ_URL = import.meta.env.VITE_READ_URL;
 
 export default function LabDashboard() {
   // Estados Generales
