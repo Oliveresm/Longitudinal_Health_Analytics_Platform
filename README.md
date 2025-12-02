@@ -103,13 +103,17 @@ API Gateway URL
 Cognito User Pool ID
 Lambda function ARNs
 DynamoDB table names
+
 5. How to Run Locally
 There are several options for local development.
+
 Option A — Run Lambdas Locally
-sam local start-api
+local start-api
+
 Option B — Run Backend Logic in Node
 You can directly invoke logic without deployment:
 node src/handlers/createLabResult.js
+
 Option C — Docker Local Runtime
 docker build -t health-platform .
 docker run -p 8080:8080 health-platform
@@ -124,11 +128,13 @@ aws lambda invoke \
   --function-name processLabResult \
   --payload file://tests/events/sample.json \
   output.json
+
 6.3 API Testing with curl
 curl -X POST https://<api-id>.execute-api.amazonaws.com/prod/labs \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"patientId":"123","test":"LDL","value":90}'
+
 6.4 Using Postman
 Import the API Gateway URL and attach your Cognito Bearer token.
 All requests must use HTTPS.
@@ -156,15 +162,20 @@ Full cost analysis is available in:
 
 8. Known Limitations
 While optimized for cost and scalability, the platform includes several known limitations:
+
 8.1 Cold Starts
 Lambda cold starts may introduce latency, especially in infrequent workloads.
+
 8.2 S3 Eventual Consistency
 Newly uploaded objects may not appear immediately.
+
 8.3 DynamoDB Data Modeling Constraints
 Query flexibility depends entirely on partition and sort keys.
+
 8.4 Rate Limits
 API Gateway has soft limits:
 10,000 req/sec per region
+
 8.5 HIPAA Compliance Requires Extra Layers
 HIPAA certification is not included by default.
 Requires:
@@ -172,6 +183,7 @@ VPC endpoints
 Private API Gateway
 KMS CMEK-managed keys
 Audit logging retention 7+ years
+
 8.6 No Built-In Dashboard
 The platform provides APIs, not a front-end analytics interface.
 Additional Documentation
@@ -181,3 +193,4 @@ Cost Analysis: docs/cost_analysis.md
 Troubleshooting: docs/troubleshooting.md (optional)
 License
 MIT or applicable license.
+
