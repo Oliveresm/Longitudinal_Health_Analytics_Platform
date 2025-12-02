@@ -7,7 +7,7 @@ import {
     ComposedChart, Bar 
 } from 'recharts';
 
-const READ_URL = 'http://healthtrends-alb-246115487.us-east-1.elb.amazonaws.com';
+const READ_URL = import.meta.env.VITE_READ_URL;
 
 export default function PatientDashboard({ user }) {
     

@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
+// ✅ SEGURIDAD: Este componente es seguro. 
+// Usa la configuración global de Amplify (definida en main.jsx con variables de entorno).
+
 // --- COMPONENTE AUXILIAR ---
-// Este componente solo se renderiza cuando ya hay un usuario.
-// Su único trabajo es ejecutar la navegación de forma segura.
 function RedirectToDashboard() {
   const navigate = useNavigate();
   
@@ -21,7 +22,7 @@ function RedirectToDashboard() {
 export default function LoginStaff() {
   const navigate = useNavigate();
 
-  // Revisión inicial por si ya estaba logueado desde antes
+  // Revisión inicial por si ya estaba logueado
   useEffect(() => {
     fetchAuthSession().then(session => {
       if (session.tokens) navigate('/dashboard');
@@ -37,7 +38,7 @@ export default function LoginStaff() {
       
       <Authenticator>
         {({ user }) => (
-          // CAMBIO: En lugar de llamar navigate() aquí, renderizamos el componente auxiliar
+          // Si hay usuario, renderizamos el componente que redirige
           user ? <RedirectToDashboard /> : null
         )}
       </Authenticator>
