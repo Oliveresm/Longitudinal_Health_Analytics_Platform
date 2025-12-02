@@ -22,9 +22,30 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
                 const response = await axios.get(`${READ_URL}/patients`, {
                     headers: { 'Authorization': token }
                 });
-                setPatients(response.data);
+
+                // --- CORRECCIÓN CRÍTICA AQUÍ ---
+                // Verificamos si response.data es el array, o si el array está adentro de .data o .results
+                const rawData = response.data;
+                let finalData = [];
+
+                if (Array.isArray(rawData)) {
+                    finalData = rawData;
+                } else if (rawData && Array.isArray(rawData.data)) {
+                    finalData = rawData.data;
+                } else if (rawData && Array.isArray(rawData.results)) {
+                    finalData = rawData.results;
+                } else {
+                    console.warn("Formato de pacientes desconocido:", rawData);
+                    finalData = [];
+                }
+
+                setPatients(finalData);
                 setLoading(false);
-            } catch (err) { console.error(err); setLoading(false); }
+            } catch (err) { 
+                console.error("Error cargando pacientes:", err); 
+                setPatients([]); // En caso de error, aseguramos un array vacío
+                setLoading(false); 
+            }
         };
         loadPatients();
     }, []);
@@ -39,14 +60,18 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
         }
     }, [selectedId, patients]);
 
-    // Lógica de filtrado
+    // Lógica de filtrado (BLINDADA)
     useEffect(() => {
         if (!query) {
             setFiltered([]);
             return;
         }
+        
+        // Protección extra: Aseguramos que patients sea un array antes de filtrar
+        const safePatients = Array.isArray(patients) ? patients : [];
+        
         const lowerQ = query.toLowerCase();
-        const results = patients.filter(p => {
+        const results = safePatients.filter(p => {
             const searchTarget = (searchField === 'id') ? p.id : p.name;
             return searchTarget && searchTarget.toLowerCase().includes(lowerQ);
         });
@@ -59,7 +84,7 @@ export default function PatientSearchDoctor({ onSelect, selectedId }) {
         onSelect(patient.id);
     };
 
-    // Estilos unificados para garantizar alineación
+    // Estilos unificados
     const heightStyle = '38px';
     const borderStyle = '1px solid #ced4da';
 
