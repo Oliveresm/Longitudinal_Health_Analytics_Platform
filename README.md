@@ -87,41 +87,74 @@ cd Longitudinal_Health_Analytics_Platform
 
 ## 2. Install Backend Dependencies
 ```bash
+2. Install Backend Dependencies
 cd services/app
 pip install -r requirements.txt
-
+3. Install Worker Dependencies
 cd services/processor
 pip install -r requirements.txt
+4. Install Frontend Dependencies
 cd healthtrends-frontend
 npm install
+📌 4. How to Deploy Infrastructure (Terraform)
+This platform is fully reproducible with Infrastructure as Code using Terraform.
+1. Enter the Terraform directory
 cd terraform
+2. Initialize Terraform
 terraform init
+3. Validate the configuration
 terraform validate
+4. Preview resources before deployment
 terraform plan
+5. Deploy the infrastructure
 terraform apply
-erraform automatically creates:
-VPC + subnets
-Security groups + routing
-RDS PostgreSQL instance
-Cognito User Pool + Groups
-SQS queue
+Terraform will automatically create:
+Networking
+VPC
+Public and private subnets
+Routing tables
+Internet gateway
+Compute / Serverless
 Lambda Ingest Function
-Lambda Post-confirmation Function
+Lambda Post-confirmation Trigger
+SQS Worker
+Security
+IAM Roles
+Resource-scoped Policies
+CloudWatch log groups
+Storage
+RDS PostgreSQL Instance
+Materialized View infrastructure
+Authentication
+Cognito User Pool
+Cognito Groups
+App Clients
+API
 API Gateway REST API
-IAM Roles + Policies
-CloudWatch Logscd services/app
+Resource mappings
+Authorizers
+📌 5. How to Run the Project Locally
+Run Backend (FastAPI)
+cd services/app
 uvicorn main:app --reload
+Run Worker (SQS Processor)
 cd services/processor
 python worker.py
+Run Frontend
 cd healthtrends-frontend
 npm start
+You can access the local FastAPI docs here:
 http://localhost:8000/docs
+📌 6. How to Test the Platform
+Example: Ingest Lab Result
 curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/ingest \
   -H "Content-Type: application/json" \
   -d '{ "patient_id":"x123", "test_code":"A1C", "value":6.5 }'
+Trend Endpoints
 GET /patient/{id}/test/{test_code}
 GET /patient/{id}/monthly-trends/{test_code}
 GET /patient/{id}/risk-analysis/{test_code}
+📌 7. Cost Estimates (AWS)
 | AWS Service              | Estimated Monthly Cost    |
 | ------------------------ | ------------------------- |
 | API Gateway              | $1–3                      |
@@ -132,15 +165,17 @@ GET /patient/{id}/risk-analysis/{test_code}
 | CloudWatch Logs          | $1–3                      |
 | Cognito                  | Free (up to 50K MAU)      |
 
-8. Known Limitations
-RDS is the most expensive component
-Materialized views require manual refresh
-No DLQ (Dead Letter Queue) for SQS
-Risk analysis requires ≥6 historical data points
-Cognito group assignment needs explicit IAM permissions
 
-9. Additional Documentation
-API Docs: docs/api.md
+RDS is the highest-cost component of the platform
+Materialized views require scheduled refresh automation
+SQS Worker does not yet implement a Dead Letter Queue
+Risk analysis requires a minimum of 6 historical lab results
+Cognito group assignment requires explicit IAM permissions
+📌 9. Additional Documentation
+API Documentation: docs/api.md
 Cost Analysis: docs/cost_analysis.md
+📌 10. Conclusion
+This platform demonstrates a complete real-world cloud architecture using AWS services, microservices with FastAPI, event-driven ingestion pipelines, relational storage, and analytical processing. Its modular design, reproducible infrastructure, and scalable serverless components make it suitable for large-scale clinical workloads and longitudinal health analytics.
 
+---
 
