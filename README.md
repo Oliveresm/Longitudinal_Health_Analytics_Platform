@@ -88,13 +88,16 @@ cd Longitudinal_Health_Analytics_Platform
 2. Install Backend Dependencies
 cd services/app
 pip install -r requirements.txt
+
 3. Install Worker Dependencies
 cd services/processor
 pip install -r requirements.txt
+
 4. Install Frontend Dependencies
 cd healthtrends-frontend
 npm install
-📌 4. How to Deploy Infrastructure
+
+4. How to Deploy Infrastructure
 1. Enter the Terraform directory:
 cd terraform
 2. Initialize Terraform:
@@ -103,6 +106,7 @@ terraform init
 terraform validate
 4. Preview:
 terraform plan
+
 5. Deploy:
 terraform apply
 Terraform automatically provisions:
@@ -115,7 +119,8 @@ Lambda Post-confirmation
 API Gateway REST API
 IAM roles, policies
 CloudWatch logs
-📌 5. How to Run Locally
+
+5. How to Run Locally
 Backend (FastAPI)
 cd services/app
 uvicorn main:app --reload
@@ -125,7 +130,8 @@ python worker.py
 Frontend
 cd healthtrends-frontend
 npm start
-📌 6. How to Test
+
+6. How to Test
 FastAPI Documentation (local):
 http://localhost:8000/docs
 Example: Ingest Lab Result
@@ -136,7 +142,8 @@ Example: Trend Analysis
 GET /patient/{id}/test/{test_code}
 GET /patient/{id}/monthly-trends/{test_code}
 GET /patient/{id}/risk-analysis/{test_code}
-📌 7. Cost Estimates
+
+� 7. Cost Estimates
 | AWS Service              | Estimated Monthly Cost |
 | ------------------------ | ---------------------- |
 | API Gateway              | $1–3                   |
@@ -147,9 +154,11 @@ GET /patient/{id}/risk-analysis/{test_code}
 | CloudWatch Logs          | $1–3                   |
 | Cognito                  | FREE (up to 50k MAU)   |
 
-📌 8. Known Limitations
+
+8. Known Limitations
 RDS is the highest cost component.
 Materialized views require manual refresh.
 Worker lacks DLQ (Dead Letter Queue).
 Risk analysis requires 6+ historical records.
 Cognito group assignment requires IAM policies.
+
