@@ -65,7 +65,7 @@ jobs:
           docker push $FULL_IMAGE_NAME
 
       # =========================================================
-      # 🐳 PASO B: Build & Push del FRONTEND (React) - ¡CORREGIDO!
+      # 🐳 PASO B: Build & Push del FRONTEND (React) - ¡100% SEGURO!
       # =========================================================
       - name: Build and Push Frontend (React)
         run: |
@@ -76,13 +76,13 @@ jobs:
 
           echo "🔨 Building Frontend Image..."
           
-          # ⚠️ CORRECCIÓN CRÍTICA:
-          # Izquierda: VITE_COGNITO_... (Lo que espera el Dockerfile nuevo)
-          # Derecha: secrets.VITE_... (Lo que guardamos en GitHub)
+          # ⚠️ AHORA TODO VIENE DE SECRETOS DE GITHUB:
           
           docker build \
             --build-arg VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_USER_POOL_ID }} \
             --build-arg VITE_COGNITO_APP_CLIENT_ID=${{ secrets.VITE_APP_CLIENT_ID }} \
+            --build-arg VITE_READ_URL=${{ secrets.VITE_READ_URL }} \
+            --build-arg VITE_INGEST_URL=${{ secrets.VITE_INGEST_URL }} \
             -t $IMAGE_NAME healthtrends-frontend/ 
 
           echo "🏷️ Pushing Frontend Image..."

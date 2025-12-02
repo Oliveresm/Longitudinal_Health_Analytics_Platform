@@ -12,11 +12,16 @@ RUN npm ci
 # 1. Recibimos los argumentos (Nombres actualizados para coincidir con el pipeline/.env)
 ARG VITE_COGNITO_USER_POOL_ID
 ARG VITE_COGNITO_APP_CLIENT_ID
+# ✅ AGREGAR ESTAS DOS LÍNEAS:
+ARG VITE_READ_URL
+ARG VITE_INGEST_URL
 
-# 2. Las exponemos como variables de entorno para que Vite las lea
-# (El nombre de la izquierda es cómo lo leerá main.jsx, el de la derecha es el valor que entra)
+# 2. Las exponemos como variables de entorno
 ENV VITE_COGNITO_USER_POOL_ID=$VITE_COGNITO_USER_POOL_ID
 ENV VITE_COGNITO_APP_CLIENT_ID=$VITE_COGNITO_APP_CLIENT_ID
+# ✅ AGREGAR ESTAS DOS LÍNEAS:
+ENV VITE_READ_URL=$VITE_READ_URL
+ENV VITE_INGEST_URL=$VITE_INGEST_URL
 
 # ... (resto del archivo igual: COPY . ., RUN npm run build, etc)
 # -----------------------------------------
