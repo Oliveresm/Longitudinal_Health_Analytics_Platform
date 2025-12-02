@@ -90,6 +90,7 @@ Code	Meaning
 401	Unauthorized
 404	Patient not found
 500	Internal error
+
 📌 GET /patients
 Returns a list of all registered patients.
 Response – 200 OK
@@ -97,6 +98,7 @@ Response – 200 OK
   { "id": "P001", "name": "Alice Torres" },
   { "id": "P002", "name": "John Carter" }
 ]
+
 📌 DELETE /labs/{id}
 Deletes a lab result by its unique ID.
 Response – 200 OK
