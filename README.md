@@ -85,3 +85,62 @@ The system supports:
 git clone https://github.com/Oliveresm/Longitudinal_Health_Analytics_Platform
 cd Longitudinal_Health_Analytics_Platform
 
+## 2. Install Backend Dependencies
+```bash
+cd services/app
+pip install -r requirements.txt
+
+cd services/processor
+pip install -r requirements.txt
+cd healthtrends-frontend
+npm install
+cd terraform
+terraform init
+terraform validate
+terraform plan
+terraform apply
+erraform automatically creates:
+VPC + subnets
+Security groups + routing
+RDS PostgreSQL instance
+Cognito User Pool + Groups
+SQS queue
+Lambda Ingest Function
+Lambda Post-confirmation Function
+API Gateway REST API
+IAM Roles + Policies
+CloudWatch Logscd services/app
+uvicorn main:app --reload
+cd services/processor
+python worker.py
+cd healthtrends-frontend
+npm start
+http://localhost:8000/docs
+curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/ingest \
+  -H "Content-Type: application/json" \
+  -d '{ "patient_id":"x123", "test_code":"A1C", "value":6.5 }'
+GET /patient/{id}/test/{test_code}
+GET /patient/{id}/monthly-trends/{test_code}
+GET /patient/{id}/risk-analysis/{test_code}
+| AWS Service              | Estimated Monthly Cost    |
+| ------------------------ | ------------------------- |
+| API Gateway              | $1–3                      |
+| Lambda ingest            | ~$0.20 / million calls    |
+| Lambda post-confirmation | ~$0.01                    |
+| SQS                      | ~$0.40 / million messages |
+| RDS PostgreSQL           | $15–30                    |
+| CloudWatch Logs          | $1–3                      |
+| Cognito                  | Free (up to 50K MAU)      |
+
+8. Known Limitations
+RDS is the most expensive component
+Materialized views require manual refresh
+No DLQ (Dead Letter Queue) for SQS
+Risk analysis requires ≥6 historical data points
+Cognito group assignment needs explicit IAM permissions
+
+9. Additional Documentation
+API Docs: docs/api.md
+Cost Analysis: docs/cost_analysis.md
+
+
