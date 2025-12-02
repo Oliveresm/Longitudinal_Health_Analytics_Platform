@@ -1,49 +1,133 @@
-# Longitudinal Health Analytics Platform
-### Documentation
+# Longitudinal Health Analytics Platform  
+### Complete Documentation – Cloud Project
 
-This platform provides an end-to-end, cloud-native solution for ingesting, storing, analyzing, and visualizing longitudinal clinical laboratory results.  
-The system uses a serverless ingestion pipeline, containerized microservices, secure authentication, and automated infrastructure deployment.
+This platform implements a fully cloud-native solution for the ingestion, processing, storage, and longitudinal analysis of clinical laboratory results. The system was built using AWS-managed services (Cognito, API Gateway, Lambda, SQS, RDS PostgreSQL) combined with microservices written in FastAPI and automated deployment via Terraform.
+
+The design focuses on scalability, cost-efficiency, low latency, and real-world medical workflows.
 
 ---
 
-# 1. Project Description
+#  1. Project Description
 
 The platform enables:
 
-- Secure patient authentication via AWS Cognito
-- Bulk and single-record ingestion of clinical lab results
-- Asynchronous background processing (Lambda + SQS)
-- Structured, query-optimized storage in PostgreSQL (RDS)
-- Microservices for patient management, catalog management, admin tools, and clinical operations
-- Longitudinal trend analysis, including:
-  - Moving averages
-  - Month-to-month aggregation (materialized view)
-  - Clinical risk analysis (percentage-based anomaly detection)
-- Full infrastructure as code using Terraform
+## ✔ Patient Authentication  
+Users authenticate through AWS Cognito. Each user belongs to one of the following groups:
+- Patients
+- Doctors
+- Labs
+- Admins
 
-The system is designed for scalability, cost efficiency, and real-world medical workflows.
+Access is controlled via JWT validation in each microservice.
 
+## ✔ Clinical Result Ingestion  
+Results can be submitted via:
+- API Gateway → Lambda Ingest  
+- Bulk upload via backend microservice  
+- SQS queue for asynchronous ingestion  
+- Lambda Worker processing messages one by one and inserting them into PostgreSQL  
 
-#  2. Prerequisites
+## ✔ Microservices Architecture  
+The backend is divided into multiple services:
 
-### Local Prerequisites
+### **services/app**  
+- Patients module  
+- Catalog module  
+- Admin module  
+- Lab operations module  
+
+### **services/trends**  
+Performs:
+- Moving average calculations  
+- Monthly aggregation using materialized views  
+- Clinical risk analysis with dynamic percentage changes  
+
+### **services/processor**  
+SQS Worker for high-volume insertion.
+
+## ✔ Longitudinal Data Analytics  
+The system supports:
+- Historical queries
+- Smoothing using 3-point moving averages
+- Long-term monthly trends
+- Risk classification by analyzing six-month percentage change patterns
+
+---
+
+# � 2. Prerequisites
+
+## Local
 - Python 3.10+
+- pip and venv
 - Node.js 18+
-- pip / virtualenv
 - PostgreSQL 14+
 - Docker (optional)
-- Uvicorn (for FastAPI)
+- Uvicorn for development
 
-### AWS Prerequisites
-- AWS account
+## AWS
 - AWS CLI configured
-- IAM admin or power-user permissions
-- Terraform v1.5+
+- Terraform 1.5+
+- IAM user with permissions to create:
+  - Lambda
+  - API Gateway
+  - Cognito
+  - RDS
+  - IAM Roles
+  - CloudWatch
+  - SQS
 
+---
 
-# 3. Setup Instructions
+#� 3. Setup Instructions
 
-### 1. Clone the repository
+## 1. Clone Repository
 ```bash
 git clone https://github.com/Oliveresm/Longitudinal_Health_Analytics_Platform
 cd Longitudinal_Health_Analytics_Platform
+
+cd services/app
+pip install -r requirements.txt
+
+cd services/processor
+pip install -r requirements.txt
+
+cd healthtrends-frontend
+npm install
+
+cd terraform
+
+terraform init
+
+terraform validate
+
+terraform plan
+
+terraform apply
+
+cd services/app
+uvicorn main:app --reload
+
+cd services/processor
+python worker.py
+
+cd healthtrends-frontend
+npm start
+
+curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/ingest \
+     -H "Content-Type: application/json" \
+     -d '{ "patient_id":"x123", "test_code":"A1C", "value":6.5 }'
+
+
+GET /patient/{id}/test/{test_code}
+GET /patient/{id}/monthly-trends/{test_code}
+GET /patient/{id}/risk-analysis/{test_code}
+
+| AWS Service              | Estimated Monthly Cost |
+| ------------------------ | ---------------------- |
+| API Gateway              | $1–3                   |
+| Lambda ingest            | $0.20 / million calls  |
+| Lambda post-confirmation | ~$0.01                 |
+| SQS                      | ~$0.40 / million msgs  |
+| RDS PostgreSQL           | $15–30                 |
+| CloudWatch Logs          | $1–3                   |
+| Cognito                  | FREE (up to 50k MAU)   |
