@@ -1,5 +1,5 @@
 # Longitudinal Health Analytics Platform  
-### Complete Documentation – Cloud Project
+### Documentation Cloud Project
 
 This platform implements a fully cloud-native solution for the ingestion, processing, storage, and longitudinal analysis of clinical laboratory results. The system was built using AWS-managed services (Cognito, API Gateway, Lambda, SQS, RDS PostgreSQL) combined with microservices written in FastAPI and automated deployment via Terraform.
 
@@ -20,14 +20,14 @@ Users authenticate through AWS Cognito. Each user belongs to one of the followin
 
 Access is controlled via JWT validation in each microservice.
 
-## ✔ Clinical Result Ingestion  
+## Clinical Result Ingestion  
 Results can be submitted via:
 - API Gateway → Lambda Ingest  
 - Bulk upload via backend microservice  
 - SQS queue for asynchronous ingestion  
 - Lambda Worker processing messages one by one and inserting them into PostgreSQL  
 
-## ✔ Microservices Architecture  
+##  Microservices Architecture  
 The backend is divided into multiple services:
 
 ### **services/app**  
@@ -84,3 +84,4 @@ The system supports:
 ```bash
 git clone https://github.com/Oliveresm/Longitudinal_Health_Analytics_Platform
 cd Longitudinal_Health_Analytics_Platform
+
