@@ -206,9 +206,5 @@ For distributed tracing:
 - Implement **API Gateway usage plans** for rate limiting  
 - Add **ML inference** using SageMaker  
 
----
 
-# 9. Architecture Diagram File
-
-A visual diagram is available at:
 
