@@ -11,7 +11,7 @@ Objetivos clave
 
 ---
 
-# 📌 1. Descripción del Proyecto
+# 1. Descripción del Proyecto
 
 - Seguridad y autenticación:
   - Inicio de sesión mediante Cognito User Pools.
@@ -37,7 +37,7 @@ Objetivos clave
 
 ---
 
-# 📌 2. Prerrequisitos
+#  2. Prerrequisitos
 
 ## Requisitos locales
 - Python 3.10+
@@ -60,7 +60,7 @@ Objetivos clave
 
 ---
 
-# 📌 3. Setup Instructions
+# 3. Setup Instructions
 
 ## 3.1 Clonar repositorio
 ash
@@ -87,7 +87,7 @@ npm install
 
 ---
 
-# � 4. Cómo desplegar la infraestructura (Terraform)
+# 4. Cómo desplegar la infraestructura (Terraform)
 
 1. Entrar al directorio de Terraform
 
@@ -114,15 +114,99 @@ terraform plan
 ash
 terraform apply
 
+Qué crea Terraform automáticamente 
 
-Qué crea Terraform automáticamente (resumen)
-- Networking, VPC, subredes públicas/privadas, tablas de enrutamiento, gateway
-- Compute serverless: Lambda Ingest, post-confirmation trigger, SQS Worker
-- Seguridad: roles IAM y políticas
-- Almacenamiento: RDS PostgreSQL
-- Materialized views e infraestructura de actualizaciones
-- Autenticación: Cognito User Pool, grupos y apps clients
-- API: API Gateway REST API, autorizadores y mapeos de recursos
+- Networking y conectividad
+  - VPC dedicada para el proyecto con:
+    - Subnetworks públicas y privadas distribuidas en una o varias AZs para alta disponibilidad.
+    - Tablas de enrutamiento asociadas a cada subnet, con rutas hacia internet (para públicas) y hacia NAT/gateways (para privadas).
+    - Internet Gateway para conectividad de las subnets públicas.
+    - NAT Gateway o NAT Instance para permitir que recursos en subredes privadas accedan a internet sin exponer directamente sus direcciones.
+    - Grupos de seguridad (Security Groups) bien definidos para cada pila (p. ej., Lambda en private subnets, RDS en private subnets) con reglas de ingreso/egreso mínimas.
+    - VPC Endpoints (opcional) para servicios de AWS (por ejemplo, S3, Secrets Manager) para evitar tráfico público.
+  - Configuración de DNS/Hosting de dominios internos si se requiere (Route 53).
+  - Políticas de red para garantizar aislamiento entre entornos (dev/stage/prod) mediante tags y módulos.
+
+- Compute serverless y procesamiento
+  - Lambda Ingest (función de ingesta de resultados) con:
+    - Role y políticas mínimas necesarias.
+    - Configuración de memoria, timeout y gestión de errores.
+    - Integración con API Gateway y SQS (según flujo de ingestión).
+    - Desencadenadores automáticos y permisos para escribir en RDS (a través de events si aplica).
+  - Post-confirmation Trigger (trigger de post-confirmación) en Cognito:
+    - Lambda que ejecuta acciones tras la confirmación del usuario (p. ej., asignación de grupos, inicialización de recursos).
+  - SQS Worker (procesador de mensajes):
+    - Lambda o configuración de consumidor para procesar mensajes de la cola SQS.
+    - Políticas de reintentos, manejo de errores y, si se decide, DLQ (Dead Letter Queue) para mensajes fallidos.
+    - Infraestructura para garantizar procesamiento idempotente y control de concurrencia.
+
+- Seguridad y control de acceso
+  - Roles IAM y políticas:
+    - Roles para cada servicio (Lambda, API Gateway, etc.) con permisos mínimos.
+    - Policies basadas en recursos para limitar accesos a recursos específicos (por ejemplo, permisos de escritura en tablas específicas de RDS, acceso de lectura a datos de ciertos esquemas).
+  - Gestión de credenciales y secretos:
+    - Integración con Secrets Manager o Parameter Store para credenciales de bases de datos, claves de API y otros secretos.
+    - Configuración de rotación de secretos si procede.
+  - Seguridad de la red y cumplimiento:
+    - Grupos de seguridad que restringen tráfico entre componentes y hacia internet.
+    - Encriptación en tránsito (TLS) y, si aplica, en reposo (RDS con KMS, cifrado de volúmenes, etc.).
+
+- Almacenamiento y datos
+  - RDS PostgreSQL:
+    - Instancia de base de datos PostgreSQL gestionada.
+    - Configuración de almacenamiento (SSD, tamaño inicial) y backups automáticos.
+    - Subnet Groups para RDS dentro de subredes privadas.
+    - Grupos de seguridad que permiten acceso solo desde los recursos autorizados (p. ej., lambda en la misma VPC).
+    - Configuración de mejoras de rendimiento (parámetros de PostgreSQL, pool de conexiones si aplica).
+  - Estructura de esquemas y migraciones:
+    - Esquemas iniciales y tablas base definidas como código.
+    - Mecanismo para aplicar migraciones de base de datos (p. ej., herramientas de migración en pipeline).
+
+- Persistencia de referencia y vistas
+  - Materialized Views (vistas materializadas) y su infraestructura:
+    - Definición de vistas materializadas para resúmenes mensuales y otros cálculos agregados.
+    - Jobs/Cron de refresco programado:
+      - Configuración para refrescar vistas mensuales (y/o diarias) mediante Lambda/EventBridge o tareas programadas.
+    - Permisos y esquemas necesarios para crear y mantener las vistas.
+  - Estructuras para soporte de análisis:
+    - Tablas de hechos y tablas de dimensiones necesarias para consultas históricas y tendencias.
+    - Índices recomendados para acelerar consultas comunes (por ejemplo, por patient_id, test_code, collection_date).
+
+- Autenticación y administración de usuarios
+  - Cognito User Pool:
+    - Creación del User Pool con configuración de políticas de contraseñas, verificación y MFA si aplica.
+    - Grupos predeterminados: Patients, Doctors, Labs, Admins.
+    - Apps clients para diferentes flujos (web, móvil, servidor).
+    - Autoasignación de usuarios a grupos cuando corresponda (si se maneja en el flujo de registro).
+  - Integración de autorización:
+    - Roles/authorizers de API Gateway para validar JWT y permisos basados en grupos.
+    - Claims personalizados para RBAC en microservicios.
+
+- API y orquestación
+  - API Gateway REST API:
+    - Crear endpoints, recursos y métodos (ingest, tendencias, análisis) con mapeos de integración a Lambda o a servicios correspondientes.
+    - Configurar recursos de autenticación (Authorizers) y autorización basada en JWT.
+  - Endpoints y despliegue:
+    - Stage(s) (dev, prod) con despliegue automatizado.
+    - Configuración de throttling y límites por método para proteger la API.
+  - Documentación de contrato:
+    - Esquemas de entrada/salida y rutas disponibles generados o mantenidos por Terraform.
+
+- Observabilidad y seguridad operativa
+  - CloudWatch:
+    - Grupos de logs por servicio (app, processor, trends).
+    - Alarmas básicas para errores, latencias y cuellos de botella.
+  - E2E tracing (opcional):
+    - Preparación para integración con OpenTelemetry o X-Ray para trazas distribuidas entre API Gateway, Lambdas y procesos.
+  - Auditoría y cumplimiento:
+    - Configuraciones de logging estructurado y retención de logs según políticas.
+
+Notas y buenas prácticas
+- Todo lo creado por Terraform está diseñado para estar aislado por entorno (dev/stage/prod) mediante variables y workspaces o módulos separados.
+- Se recomienda usar módulos para componentes repetibles (p. ej., Lambda, API Gateway, SQS, RDS) y mantener un estado de Terraform en S3 con bloqueo (DynamoDB) para evitar conflictos.
+- Mantén los secretos en Secrets Manager y evita incrustarlos en el código o en el repositorio.
+
+Si quieres, te puedo proporcionar fragmentos de código específicos para alguno de estos componentes (por ejemplo, un módulo de Terraform para DLQ de SQS, un ejemplo de IAM policy para el Lambda Ingest, o un fragmento de FastAPI middleware para validar JWT). ¿Qué componente te gustaría ampliar primero?
 
 ---
 
@@ -175,9 +259,6 @@ Para pruebas locales, simula el endpoint correspondiente en FastAPI o usa proxie
 | Cognito | Gratis (hasta 50K MAU) |
 | Total estimado | ~20–40 USD / mes |
 
-Notas:
-- Estos números son aproximados y dependen del volumen real de ingestas y de la configuración de escalado.
-
 ---
 
 # 8. Limitaciones conocidas
@@ -218,3 +299,4 @@ Notas:
   - IaC para toda la infraestructura (VPC, RDS, API Gateway, Lambda, SQS, Cognito)
 
 ---
+
