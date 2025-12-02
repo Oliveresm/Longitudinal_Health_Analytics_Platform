@@ -7,26 +7,41 @@ This document provides a detailed explanation of the system’s components, data
 
 # 1. High-Level Architecture Diagram
 
-[Client / Mobile App / External Systems]
-|
-v
-[API Gateway]
-|
-v
-[Lambda: Ingest]
-|
-v
-[SQS Queue]
-|
-v
-[Lambda: Process Lab Result]
-/
-v v
-[DynamoDB] [S3 Storage]
-(Patient DB) (Raw + Processed Data)
-|
-v
-[Analytics / ML / BI]
+                ┌────────────────────────────────────────┐
+                │   Client / Web App / External Systems  │
+                └────────────────────────────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────────────┐
+                │              API Gateway               │
+                └────────────────────────────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────────────┐
+                │            Lambda: Ingest              │
+                └────────────────────────────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────────────┐
+                │               SQS Queue                │
+                └────────────────────────────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────────────┐
+                │     Lambda: Process Lab Result         │
+                └────────────────────────────────────────┘
+                         /                       \
+                        ▼                         ▼
+       ┌────────────────────────────────┐   ┌───────────────────────────────────┐
+       │            DynamoDB            │   │            S3 Storage            │
+       │         (Patient Data)         │   │     (Raw + Processed Data)       │
+       └────────────────────────────────┘   └───────────────────────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────────────┐
+                │          Analytics / ML / BI           │
+                └────────────────────────────────────────┘
+
 
 
 ---
@@ -205,6 +220,7 @@ For distributed tracing:
 - Add **Glue ETL** pipelines  
 - Implement **API Gateway usage plans** for rate limiting  
 - Add **ML inference** using SageMaker  
+
 
 
 
