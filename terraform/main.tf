@@ -13,4 +13,3 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
-# Forzando el despliegue del CI/CD12
