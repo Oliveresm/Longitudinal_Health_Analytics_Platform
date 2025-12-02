@@ -85,18 +85,26 @@ The system supports:
 git clone https://github.com/Oliveresm/Longitudinal_Health_Analytics_Platform
 cd Longitudinal_Health_Analytics_Platform
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+
 2. Install Backend Dependencies
 cd services/app
 pip install -r requirements.txt
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 3. Install Worker Dependencies
 cd services/processor
 pip install -r requirements.txt
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 4. Install Frontend Dependencies
 cd healthtrends-frontend
 npm install
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 4. How to Deploy Infrastructure
 1. Enter the Terraform directory:
 cd terraform
@@ -107,6 +115,8 @@ terraform validate
 4. Preview:
 terraform plan
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 5. Deploy:
 terraform apply
 Terraform automatically provisions:
@@ -120,6 +130,8 @@ API Gateway REST API
 IAM roles, policies
 CloudWatch logs
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 5. How to Run Locally
 Backend (FastAPI)
 cd services/app
@@ -131,6 +143,8 @@ Frontend
 cd healthtrends-frontend
 npm start
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
+```bash
 6. How to Test
 FastAPI Documentation (local):
 http://localhost:8000/docs
@@ -142,8 +156,10 @@ Example: Trend Analysis
 GET /patient/{id}/test/{test_code}
 GET /patient/{id}/monthly-trends/{test_code}
 GET /patient/{id}/risk-analysis/{test_code}
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
 
-� 7. Cost Estimates
+```bash
+7. Cost Estimates
 | AWS Service              | Estimated Monthly Cost |
 | ------------------------ | ---------------------- |
 | API Gateway              | $1–3                   |
@@ -154,11 +170,14 @@ GET /patient/{id}/risk-analysis/{test_code}
 | CloudWatch Logs          | $1–3                   |
 | Cognito                  | FREE (up to 50k MAU)   |
 
+------------------------ ------------------------ ------------------------ ------------------------ ------------------------ ----------
 
+```bash
 8. Known Limitations
 RDS is the highest cost component.
 Materialized views require manual refresh.
 Worker lacks DLQ (Dead Letter Queue).
 Risk analysis requires 6+ historical records.
 Cognito group assignment requires IAM policies.
+
 
