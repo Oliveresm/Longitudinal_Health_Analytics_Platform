@@ -76,9 +76,9 @@ jobs:
 
           echo "🔨 Building Frontend Image..."
           
-          # ⚠️ CORRECCIÓN CRÍTICA AQUÍ:
-          # Izquierda (ARG del Dockerfile): VITE_COGNITO_... (Lo que cambiamos antes)
-          # Derecha (Secreto de GitHub): secrets.VITE_... (Lo que vas a crear ahora)
+          # ⚠️ CORRECCIÓN CRÍTICA:
+          # Izquierda: VITE_COGNITO_... (Lo que espera el Dockerfile nuevo)
+          # Derecha: secrets.VITE_... (Lo que guardamos en GitHub)
           
           docker build \
             --build-arg VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_USER_POOL_ID }} \
