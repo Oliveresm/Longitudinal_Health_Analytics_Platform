@@ -110,7 +110,7 @@ resource "aws_lb_listener_rule" "api_routing_part_1" {
 }
 
 # --- 5B. Reglas de Ruteo API (Parte 2: Negocio) ---
-# El resto de las rutas de la API van aquí
+# CORREGIDO: Se agregan rutas base (/patients y /trends) sin el asterisco
 resource "aws_lb_listener_rule" "api_routing_part_2" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 101 
@@ -123,9 +123,12 @@ resource "aws_lb_listener_rule" "api_routing_part_2" {
   condition {
     path_pattern {
       values = [
-        "/patients/*",  
+        "/patients",    # ✅ SOLUCIÓN: Atrapa la lista exacta
+        "/patients/*",  # Atrapa el detalle (/patients/123)
+        "/trends",      # ✅ PREVENCIÓN: Atrapa la lista de tendencias
         "/trends/*",    
-        "/lab/*"        
+        "/lab/*"        # ⚠️ Nota: AWS limita a 5 valores por regla. 
+                        # Si necesitas "/lab" (lista), crea una api_routing_part_3
       ]
     }
   }
