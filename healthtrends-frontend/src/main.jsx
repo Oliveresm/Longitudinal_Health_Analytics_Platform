@@ -13,10 +13,14 @@ import { Amplify } from 'aws-amplify';
 
 const authConfig = {
   Auth: {
-    Cognito: {  // 👈 ¡Este nivel es nuevo en la v6!
-      userPoolId: import.meta.env.VITE_USER_POOL_ID,
-      userPoolClientId: import.meta.env.VITE_APP_CLIENT_ID, // 👈 Nota: Cambió de userPoolWebClientId a userPoolClientId
-      loginWith: { // 👈 Opcional: Define esto vacío si no usas email/social login explícito, ayuda a evitar el error de undefined
+    Cognito: {
+      // CAMBIO: Agregamos "_COGNITO" para coincidir con tu .env
+      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+      
+      // CAMBIO: Agregamos "_COGNITO" aquí también
+      userPoolClientId: import.meta.env.VITE_COGNITO_APP_CLIENT_ID,
+      
+      loginWith: {
         email: true,
       }
     }

@@ -6,12 +6,19 @@ RUN npm ci
 
 # --- INYECCIÓN DE VARIABLES DE ENTORNO ---
 # 1. Recibimos los argumentos desde el pipeline (GitHub Actions)
-ARG VITE_USER_POOL_ID
-ARG VITE_APP_CLIENT_ID
+# ... (inicio del archivo igual)
 
-# 2. Las exponemos como variables de entorno para que Vite las lea al construir
-ENV VITE_USER_POOL_ID=$VITE_USER_POOL_ID
-ENV VITE_APP_CLIENT_ID=$VITE_APP_CLIENT_ID
+# --- INYECCIÓN DE VARIABLES DE ENTORNO ---
+# 1. Recibimos los argumentos (Nombres actualizados para coincidir con el pipeline/.env)
+ARG VITE_COGNITO_USER_POOL_ID
+ARG VITE_COGNITO_APP_CLIENT_ID
+
+# 2. Las exponemos como variables de entorno para que Vite las lea
+# (El nombre de la izquierda es cómo lo leerá main.jsx, el de la derecha es el valor que entra)
+ENV VITE_COGNITO_USER_POOL_ID=$VITE_COGNITO_USER_POOL_ID
+ENV VITE_COGNITO_APP_CLIENT_ID=$VITE_COGNITO_APP_CLIENT_ID
+
+# ... (resto del archivo igual: COPY . ., RUN npm run build, etc)
 # -----------------------------------------
 
 COPY . .
