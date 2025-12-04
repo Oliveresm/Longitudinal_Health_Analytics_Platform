@@ -42,7 +42,7 @@ This document provides a detailed explanation of the system’s components, data
                 │          Analytics / ML / BI           │
                 └────────────────────────────────────────┘
 
-
+![Diagrama de Arquitectura AWS](diagrama.jpeg)
 
 ---
 
@@ -220,6 +220,8 @@ For distributed tracing:
 - Add **Glue ETL** pipelines  
 - Implement **API Gateway usage plans** for rate limiting  
 - Add **ML inference** using SageMaker  
+
+
 
 
 
